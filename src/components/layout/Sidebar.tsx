@@ -14,6 +14,8 @@ import {
   HeartPulse,
   History,
   FileHeart,
+  Receipt,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { store } from "@/services/store.service";
@@ -35,13 +37,16 @@ const navigation = [
     items: [
       { name: "Escalas & Plantões", href: "/escalas", icon: CalendarCheck },
       { name: "PEP (Meus Pacientes)", href: "/pep", icon: Stethoscope },
+      { name: "Central de Alertas", href: "/alertas", icon: HeartPulse },
     ],
   },
   {
-    title: "Governança & Segurança",
+    title: "Governança & Financeiro",
     items: [
+      { name: "Faturamento & Convênios", href: "/faturamento", icon: Receipt },
       { name: "Unidades & Regiões", href: "/unidades", icon: ShieldCheck },
       { name: "Trilha de Auditoria", href: "/auditoria", icon: History },
+      { name: "Meu Perfil", href: "/perfil", icon: User },
     ],
   },
 ];
@@ -62,31 +67,30 @@ export function Sidebar({ className }: { className?: string }) {
       )}
     >
       {/* Brand Header */}
-      <div className="h-16 flex items-center px-6 border-b border-slate-100 gap-3">
-        <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-teal-700 to-teal-500 flex items-center justify-center text-white shadow-md shadow-teal-600/20">
+      <div className="flex items-center gap-3 px-6 h-16 border-b border-slate-200/80">
+        <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-teal-600 text-white shadow-xs font-bold text-lg">
           <HeartPulse className="h-5 w-5" />
         </div>
-        <div>
-          <div className="font-bold text-slate-900 leading-tight tracking-tight flex items-center gap-1.5">
-            CuraHome <span className="text-[10px] uppercase font-extrabold bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded border border-teal-200">PEP</span>
-          </div>
-          <p className="text-[11px] text-slate-400 font-medium">Atenção Domiciliar</p>
+        <div className="flex flex-col">
+          <span className="font-bold text-slate-900 leading-tight tracking-tight text-base">
+            HomeCare
+          </span>
+          <span className="text-[10px] text-teal-600 font-semibold tracking-wider uppercase">
+            Sistema Integrado
+          </span>
         </div>
       </div>
 
-      {/* Navigation Links */}
-      <div className="flex-1 overflow-y-auto py-5 px-3 space-y-6">
-        {navigation.map((section, idx) => (
-          <div key={idx} className="space-y-1">
-            <h4 className="px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              {section.title}
-            </h4>
-            <div className="mt-1 space-y-0.5">
-              {section.items.map((item) => {
-                const isActive =
-                  item.href === "/"
-                    ? pathname === "/"
-                    : pathname.startsWith(item.href);
+      {/* Navigation Groups */}
+      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
+        {navigation.map((group) => (
+          <div key={group.title} className="space-y-1">
+            <h3 className="px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              {group.title}
+            </h3>
+            <div className="space-y-0.5 pt-1">
+              {group.items.map((item) => {
+                const isActive = pathname === item.href;
                 const Icon = item.icon;
                 return (
                   <Link
@@ -123,18 +127,20 @@ export function Sidebar({ className }: { className?: string }) {
 
       {/* Role / Profile Switcher Info */}
       <div className="p-3 border-t border-slate-100">
-        <div className="rounded-xl bg-slate-50 p-3 border border-slate-200/60">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-800 mb-1">
-            <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Perfil Ativo: {currentUser.role}
-            </span>
-            <ShieldCheck className="h-3.5 w-3.5 text-teal-600" />
+        <Link href="/perfil">
+          <div className="rounded-xl bg-slate-50 hover:bg-slate-100 p-3 border border-slate-200/60 transition-colors cursor-pointer">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-800 mb-1">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                Perfil: {currentUser.role}
+              </span>
+              <ShieldCheck className="h-3.5 w-3.5 text-teal-600" />
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed truncate">
+              {currentUser.name}
+            </p>
           </div>
-          <p className="text-[11px] text-slate-500 leading-relaxed truncate">
-            {currentUser.name}
-          </p>
-        </div>
+        </Link>
       </div>
     </aside>
   );
