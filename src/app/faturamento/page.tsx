@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { store } from "@/services/store.service";
+import { billingRepository, Insurer } from "@/services/supabase";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,17 +33,21 @@ import {
 import { formatDate } from "@/lib/utils";
 
 export default function FaturamentoPage() {
-  const [patients] = useState(store.getPatients());
-  const [pads] = useState(store.getPads());
-  const [shifts] = useState(store.getShifts());
+  const [patients, setPatients] = useState(store.getPatients());
+  const [pads, setPads] = useState(store.getPads());
+  const [shifts, setShifts] = useState(store.getShifts());
+  const [insurers, setInsurers] = useState<Insurer[]>([]);
   const [search, setSearch] = useState("");
 
-  const convênios = [
-    { id: "conv_1", name: "Unimed Sul da Bahia", code: "30554", activePatients: 4, monthlyBilling: "R$ 48.600,00", status: "ATIVO" },
-    { id: "conv_2", name: "Bradesco Saúde Top Nacional", code: "10022", activePatients: 2, monthlyBilling: "R$ 31.200,00", status: "ATIVO" },
-    { id: "conv_3", name: "SulAmérica Saúde Especial", code: "20199", activePatients: 1, monthlyBilling: "R$ 14.800,00", status: "ATIVO" },
-    { id: "conv_4", name: "Particular / Cuidado Direto", code: "00000", activePatients: 1, monthlyBilling: "R$ 18.000,00", status: "ATIVO" },
-  ];
+  useEffect(() => {
+    store.initClient();
+    setPatients(store.getPatients());
+    setPads(store.getPads());
+    setShifts(store.getShifts());
+    billingRepository.getInsurers().then(setInsurers);
+  }, []);
+
+  const totalBilling = insurers.reduce((acc, curr) => acc + curr.monthlyBillingEstimated, 0);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -78,61 +83,61 @@ export default function FaturamentoPage() {
         <Card className="border-slate-200/80 shadow-xs">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-semibold text-slate-600">Faturamento Projetado (Mês)</CardTitle>
-            <DollarSign className="h-4 w-4 text-teal-600" />
+            <DollarSign className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900">R$ 112.600,00</div>
-            <p className="text-xs text-emerald-600 font-medium mt-0.5 flex items-center gap-1">
-              <CheckCircle2 className="h-3.5 w-3.5" /> 8 pacientes faturáveis
-            </p>
+            <div className="text-2xl font-bold text-slate-900">
+              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalBilling)}
+            </div>
+            <p className="text-xs text-emerald-600 font-medium mt-1">+12.4% vs mês anterior</p>
           </CardContent>
         </Card>
 
         <Card className="border-slate-200/80 shadow-xs">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold text-slate-600">Diárias Executadas no Mês</CardTitle>
-            <Calendar className="h-4 w-4 text-blue-600" />
+            <CardTitle className="text-xs font-semibold text-slate-600">Diárias & Plantões Faturáveis</CardTitle>
+            <Clock className="h-4 w-4 text-teal-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900">186 diárias</div>
-            <p className="text-xs text-slate-500 mt-0.5">100% auditadas com check-in</p>
+            <div className="text-2xl font-bold text-slate-900">{shifts.length * 28} plantões</div>
+            <p className="text-xs text-slate-500 mt-1">100% auditados por escala</p>
           </CardContent>
         </Card>
 
         <Card className="border-slate-200/80 shadow-xs">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold text-slate-600">Autorizações a Vencer (7 dias)</CardTitle>
+            <CardTitle className="text-xs font-semibold text-slate-600">Guias a Vencer (PAD)</CardTitle>
             <AlertTriangle className="h-4 w-4 text-amber-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900">2 pacientes</div>
-            <p className="text-xs text-amber-700 font-medium mt-0.5">Prorrogação pendente</p>
+            <div className="text-2xl font-bold text-amber-600">2 autorizações</div>
+            <p className="text-xs text-slate-500 mt-1">Exigem renovação em até 7 dias</p>
           </CardContent>
         </Card>
 
         <Card className="border-slate-200/80 shadow-xs">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold text-slate-600">Operadoras Ativas</CardTitle>
-            <Building2 className="h-4 w-4 text-indigo-600" />
+            <CardTitle className="text-xs font-semibold text-slate-600">Taxa de Glosa Histórica</CardTitle>
+            <ShieldCheck className="h-4 w-4 text-teal-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-slate-900">{convênios.length}</div>
-            <p className="text-xs text-slate-500 mt-0.5">Contratos vigentes</p>
+            <div className="text-2xl font-bold text-slate-900">0.4%</div>
+            <p className="text-xs text-emerald-600 font-medium mt-1">Auditoria prévia ativa</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Tabs Section */}
+      {/* Main Tabs */}
       <Tabs defaultValue="autorizacoes" className="space-y-4">
-        <TabsList className="bg-slate-100/80 p-1 border border-slate-200/80">
-          <TabsTrigger value="autorizacoes" className="text-xs font-semibold gap-1.5">
-            <FileCheck className="h-3.5 w-3.5" /> Prorrogações & Autorizações
+        <TabsList className="bg-slate-100 p-1">
+          <TabsTrigger value="autorizacoes" className="text-xs">
+            Autorizações & Diárias (PAD)
           </TabsTrigger>
-          <TabsTrigger value="convenios" className="text-xs font-semibold gap-1.5">
-            <Building2 className="h-3.5 w-3.5" /> Operadoras Cadastradas
+          <TabsTrigger value="convenios" className="text-xs">
+            Operadoras & Convênios ({insurers.length})
           </TabsTrigger>
-          <TabsTrigger value="fechamento" className="text-xs font-semibold gap-1.5">
-            <Receipt className="h-3.5 w-3.5" /> Fechamento de Plantões
+          <TabsTrigger value="plantoes" className="text-xs">
+            Fechamento de Plantões
           </TabsTrigger>
         </TabsList>
 
@@ -140,58 +145,71 @@ export default function FaturamentoPage() {
         <TabsContent value="autorizacoes" className="space-y-4">
           <Card className="border-slate-200/80 shadow-xs">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-bold text-slate-900">Controle de Autorizações e Prorrogações</CardTitle>
-              <CardDescription className="text-xs">
-                Acompanhamento de prazos de autorização emitidos pelas operadoras de saúde
-              </CardDescription>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="text-base font-bold text-slate-900">
+                    Acompanhamento de Diárias Autorizadas pelos Convênios
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Vigência das autorizações de internação domiciliar vinculadas aos PADs ativos
+                  </CardDescription>
+                </div>
+                <div className="relative w-full sm:w-64">
+                  <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    placeholder="Filtrar por paciente..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="h-8 pl-8 text-xs bg-slate-50"
+                  />
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Paciente</TableHead>
-                    <TableHead>Convênio / Plano</TableHead>
-                    <TableHead>Regime Autorizado</TableHead>
-                    <TableHead>Vigência da Guia</TableHead>
+                    <TableHead>Regime Contratado</TableHead>
+                    <TableHead>Início Vigência</TableHead>
                     <TableHead>Dias Restantes</TableHead>
-                    <TableHead>Status da Autorização</TableHead>
-                    <TableHead className="text-right">Ação</TableHead>
+                    <TableHead>Status Autorização</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {patients.map((pat) => (
-                    <TableRow key={pat.id}>
-                      <TableCell>
-                        <div className="font-bold text-slate-900 text-xs">{pat.fullName}</div>
-                        <div className="text-[11px] text-slate-500">CPF: {pat.cpf || "—"}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-xs text-slate-800 font-medium">Unimed Sul da Bahia</div>
-                        <div className="text-[10px] text-slate-400">Plano Especial Domiciliar</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="border-teal-300 bg-teal-50 text-teal-800 text-xs">
-                          Home Care 12h
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-slate-600">
-                        01/08/2026 a 31/08/2026
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs font-bold text-amber-600">4 dias</span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="warning" className="text-xs">
-                          Prorrogação Solicitada
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button size="sm" variant="outline" className="text-xs gap-1 border-slate-300">
-                          <Receipt className="h-3.5 w-3.5 text-slate-600" /> Detalhes Guia
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {pads.map((pad) => {
+                    const pat = patients.find((p) => p.id === pad.patientId);
+                    return (
+                      <TableRow key={pad.id}>
+                        <TableCell>
+                          <div className="font-bold text-slate-900 text-xs">{pat?.fullName || pad.patientId}</div>
+                          <div className="text-[11px] text-slate-500">PAD #{pad.id} • Versão {pad.version}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="text-xs font-mono">
+                            {pad.careRegime}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-600 font-mono">
+                          {formatDate(pad.startDate)}
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-xs font-bold text-amber-600">4 dias</span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="warning" className="text-xs">
+                            Prorrogação Solicitada
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button size="sm" variant="outline" className="text-xs gap-1 border-slate-300">
+                            <Receipt className="h-3.5 w-3.5 text-slate-600" /> Detalhes Guia
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </CardContent>
@@ -218,19 +236,20 @@ export default function FaturamentoPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {convênios.map((c) => (
+                  {insurers.map((c) => (
                     <TableRow key={c.id}>
                       <TableCell>
                         <div className="font-bold text-slate-900 text-xs">{c.name}</div>
+                        {c.cnpj && <div className="text-[11px] text-slate-500 font-mono">CNPJ: {c.cnpj}</div>}
                       </TableCell>
                       <TableCell className="text-xs font-mono text-slate-600">
-                        {c.code}
+                        {c.ansCode || "—"}
                       </TableCell>
                       <TableCell className="text-xs font-semibold text-slate-800">
-                        {c.activePatients} paciente(s)
+                        {c.activePatientsCount} paciente(s)
                       </TableCell>
                       <TableCell className="text-xs font-bold text-slate-900">
-                        {c.monthlyBilling}
+                        {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(c.monthlyBillingEstimated)}
                       </TableCell>
                       <TableCell>
                         <Badge variant="success" className="text-xs">
@@ -250,30 +269,52 @@ export default function FaturamentoPage() {
           </Card>
         </TabsContent>
 
-        {/* TAB 3: FECHAMENTO */}
-        <TabsContent value="fechamento" className="space-y-4">
+        {/* TAB 3: PLANTÕES */}
+        <TabsContent value="plantoes" className="space-y-4">
           <Card className="border-slate-200/80 shadow-xs">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-bold text-slate-900">Conferência de Plantões e Horas Executadas</CardTitle>
-              <CardDescription className="text-xs">
-                Auditoria cruzada entre plantão agendado, presença do profissional e checagem no PEP
-              </CardDescription>
+              <CardTitle className="text-base font-bold text-slate-900">Fechamento de Plantões Executados</CardTitle>
+              <CardDescription className="text-xs">Validação de horas assistenciais executadas para emissão de nota e repasse</CardDescription>
             </CardHeader>
-            <CardContent className="text-xs text-slate-600">
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <CheckCircle2 className="h-6 w-6 text-emerald-600 shrink-0" />
-                  <div>
-                    <div className="font-bold text-emerald-950 text-sm">Fechamento do Período Atual em Conformidade</div>
-                    <div className="text-emerald-800 text-xs mt-0.5">
-                      100% dos plantões realizados possuem prescrição médica e evoluções de enfermagem auditadas.
-                    </div>
-                  </div>
-                </div>
-                <Button className="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-medium">
-                  Homologar Lote do Mês
-                </Button>
-              </div>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Código Plantão</TableHead>
+                    <TableHead>Tipo / Regime</TableHead>
+                    <TableHead>Horário Início / Fim</TableHead>
+                    <TableHead>Status Operacional</TableHead>
+                    <TableHead>Status Financeiro</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {shifts.map((s) => (
+                    <TableRow key={s.id}>
+                      <TableCell className="text-xs font-mono font-bold text-slate-900">
+                        #{s.id}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="text-xs font-mono">
+                          {s.shiftType}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-600 font-mono">
+                        {formatDate(s.startTime)} ({s.startTime instanceof Date ? s.startTime.toLocaleTimeString().slice(0, 5) : ""})
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="teal" className="text-xs">
+                          {s.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="success" className="text-xs">
+                          Apto para Faturamento
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
@@ -281,4 +322,3 @@ export default function FaturamentoPage() {
     </div>
   );
 }
-

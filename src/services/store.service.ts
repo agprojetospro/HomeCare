@@ -1041,7 +1041,6 @@ class HomeCareStore {
     };
     this.assignments.push(newAssign);
     this.audit("SHIFT_ASSIGN", "patient_professional_assignments", newAssign.id, data.patientId, newAssign);
-    this.saveToStorage();
     return newAssign;
   }
 
