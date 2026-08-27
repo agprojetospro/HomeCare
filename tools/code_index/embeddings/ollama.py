@@ -63,3 +63,4 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
         for text in texts:
             results.append(self.embed_text(text))
         return results
+

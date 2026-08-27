@@ -114,3 +114,4 @@ class DependencyGraph:
                 report.affected_rpcs.append(dep)
 
         return report
+

@@ -101,3 +101,4 @@ def load_config(config_path: Optional[Path] = None, project_root: Optional[Path]
             pass
             
     return config
+

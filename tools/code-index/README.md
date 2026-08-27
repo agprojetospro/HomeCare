@@ -63,3 +63,4 @@ python -m unittest discover -s tools/code_index/tests -p "test_*.py"
 - **Busca Híbrida**: $\text{Score} = 0.55 \times \text{Vetorial} + 0.35 \times \text{FTS5} + 0.10 \times \text{Metadados}$.
 - **Grafo de Dependências**: Rastreia quem chama, quem é chamado e analisa o impacto cascata de alterações.
 - **Servidor MCP**: Suporte nativo ao protocolo Model Context Protocol em `tools/code_index/mcp/server.py`.
+

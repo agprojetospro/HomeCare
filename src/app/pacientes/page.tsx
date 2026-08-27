@@ -235,11 +235,17 @@ export default function PatientsPage() {
                         {patient.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right space-x-1.5">
+                      <Link href={`/pacientes/${patient.id}`}>
+                        <Button size="sm" variant="ghost" className="gap-1 text-xs text-slate-700 hover:bg-slate-100">
+                          <Users className="h-3.5 w-3.5 text-slate-500" />
+                          Dossiê 360°
+                        </Button>
+                      </Link>
                       <Link href={`/pep/${patient.id}`}>
-                        <Button size="sm" variant="outline" className="gap-1.5 text-xs text-teal-700 hover:bg-teal-50">
+                        <Button size="sm" variant="outline" className="gap-1 text-xs text-teal-700 hover:bg-teal-50 border-teal-200">
                           <Stethoscope className="h-3.5 w-3.5 text-teal-600" />
-                          Prontuário
+                          PEP
                         </Button>
                       </Link>
                     </TableCell>

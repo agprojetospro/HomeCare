@@ -31,3 +31,4 @@ __all__ = [
     "unpack_vector",
     "cosine_similarity",
 ]
+

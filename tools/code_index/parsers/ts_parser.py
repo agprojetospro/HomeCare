@@ -220,3 +220,4 @@ class TypeScriptParser(BaseParser):
                 )
 
         return parsed
+

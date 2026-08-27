@@ -58,3 +58,4 @@ scanner:
     - .yaml
     - .yml
     - .prisma
+

@@ -1085,6 +1085,25 @@ class HomeCareStore {
       .filter((ev) => ev.patientId === patientId)
       .sort((a, b) => new Date(b.eventTimestamp).getTime() - new Date(a.eventTimestamp).getTime());
   }
+
+  public canAccessPatient(patientId: string): boolean {
+    const patient = this.getPatientById(patientId);
+    if (!patient) return false;
+    const auth = authorizePatientAccess({
+      userRole: this.currentUser.role,
+      userStatus: this.currentUser.status,
+      userOrgId: this.currentUser.organizationId,
+      patientOrgId: patient.organizationId,
+      userUnitIds: this.currentUser.unitIds,
+      patientUnitId: patient.unitId,
+      professionalId: this.currentUser.professionalId,
+      userId: this.currentUser.id,
+      patientId: patient.id!,
+      activeAssignments: this.assignments,
+    });
+    return auth.authorized;
+  }
 }
 
+export type { PatientProfessionalAssignment };
 export const store = new HomeCareStore();

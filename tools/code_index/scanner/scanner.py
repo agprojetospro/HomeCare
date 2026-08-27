@@ -134,3 +134,4 @@ class FileScanner:
                 skipped_reasons.append(f"Erro ao ler {rel_path}: {e}")
 
         return scanned_files, skipped_reasons
+

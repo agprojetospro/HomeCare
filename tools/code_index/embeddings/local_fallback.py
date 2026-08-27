@@ -54,3 +54,4 @@ class LocalDeterministicEmbeddingProvider(EmbeddingProvider):
 
     def embed_batch(self, texts: List[str]) -> List[List[float]]:
         return [self.embed_text(t) for t in texts]
+

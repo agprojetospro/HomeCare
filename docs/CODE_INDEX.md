@@ -55,3 +55,4 @@ flowchart TD
 
 - **100% Local**: Nenhum código ou metadado é enviado para serviços externos ou APIs na nuvem.
 - **Proteção contra Vazamento de Segredos**: Arquivos como `.env`, `.env.*`, `*.pem`, `*.key` e padrões de chaves/tokens privados são descartados automaticamente pelo `SecretDetector` antes de qualquer processamento.
+

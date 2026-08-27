@@ -17,3 +17,4 @@ homecare-index = "tools.code_index.cli.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+

@@ -37,3 +37,4 @@ def parse_file(content: str, rel_path: str, language: str, parsers: List[BasePar
         ],
         raw_content=content,
     )
+

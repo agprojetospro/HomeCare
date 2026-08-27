@@ -34,3 +34,4 @@ class SecretDetector:
             if pat.search(content):
                 return True, f"Content matches sensitive pattern '{pat.pattern}'"
         return False, ""
+
