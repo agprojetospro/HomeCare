@@ -33,6 +33,8 @@ import {
   CheckCircle2,
   MapPin,
   HeartCrack,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
@@ -40,6 +42,8 @@ import { formatDate } from "@/lib/utils";
 export default function PatientsPage() {
   const [patients, setPatients] = useState<Patient[]>(store.getPatients());
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -76,6 +80,11 @@ export default function PatientsPage() {
       p.addressCity.toLowerCase().includes(q)
     );
   });
+
+  const totalPages = Math.ceil(filteredPatients.length / pageSize) || 1;
+  const paginatedPatients = filteredPatients.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const startIdx = filteredPatients.length > 0 ? (currentPage - 1) * pageSize + 1 : 0;
+  const endIdx = Math.min(currentPage * pageSize, filteredPatients.length);
 
   const handleCreatePatient = (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,7 +204,7 @@ export default function PatientsPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredPatients.map((patient) => (
+                paginatedPatients.map((patient) => (
                   <TableRow key={patient.id}>
                     <TableCell>
                       <div className="font-semibold text-slate-900">{patient.fullName}</div>
@@ -254,6 +263,38 @@ export default function PatientsPage() {
               )}
             </TableBody>
           </Table>
+
+          {/* Paginação */}
+          <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs text-slate-500">
+              Exibindo <span className="font-semibold text-slate-700">{startIdx}</span> a{" "}
+              <span className="font-semibold text-slate-700">{endIdx}</span> de{" "}
+              <span className="font-semibold text-slate-700">{filteredPatients.length}</span> pacientes
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="h-8 gap-1 text-xs"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" /> Anterior
+              </Button>
+              <span className="text-xs font-medium text-slate-700 px-2">
+                {currentPage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="h-8 gap-1 text-xs"
+              >
+                Próximo <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

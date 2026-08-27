@@ -34,13 +34,23 @@ import {
   Mail,
   ShieldCheck,
   Building2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 export default function ProfessionalsPage() {
   const [professionals, setProfessionals] = useState<Professional[]>(store.getProfessionals());
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Reset page when search query changes
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    setCurrentPage(1);
+  };
 
   // Form State
   const [formData, setFormData] = useState({
@@ -66,6 +76,11 @@ export default function ProfessionalsPage() {
       p.profession.toLowerCase().includes(q)
     );
   });
+
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const paginatedProfessionals = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const startIdx = filtered.length > 0 ? (currentPage - 1) * pageSize + 1 : 0;
+  const endIdx = Math.min(currentPage * pageSize, filtered.length);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,7 +158,7 @@ export default function ProfessionalsPage() {
             <Input
               placeholder="Pesquisar por nome, CPF, conselho ou especialidade..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-9 bg-slate-50 border-slate-200"
             />
           </div>
@@ -152,10 +167,13 @@ export default function ProfessionalsPage() {
 
       {/* Table */}
       <Card className="border-slate-200/80 shadow-xs">
-        <CardHeader className="pb-3">
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <CardTitle className="text-base font-bold text-slate-900">
             Profissionais Ativos ({filtered.length})
           </CardTitle>
+          <span className="text-xs text-slate-500 font-medium">
+            Página {currentPage} de {totalPages}
+          </span>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -170,7 +188,7 @@ export default function ProfessionalsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((p) => {
+              {paginatedProfessionals.map((p) => {
                 const cred = p.credentials?.[0];
                 return (
                   <TableRow key={p.id}>
@@ -221,6 +239,38 @@ export default function ProfessionalsPage() {
               })}
             </TableBody>
           </Table>
+
+          {/* Paginação */}
+          <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs text-slate-500">
+              Exibindo <span className="font-semibold text-slate-700">{startIdx}</span> a{" "}
+              <span className="font-semibold text-slate-700">{endIdx}</span> de{" "}
+              <span className="font-semibold text-slate-700">{filtered.length}</span> profissionais
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="h-8 gap-1 text-xs"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" /> Anterior
+              </Button>
+              <span className="text-xs font-medium text-slate-700 px-2">
+                {currentPage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="h-8 gap-1 text-xs"
+              >
+                Próximo <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
