@@ -130,3 +130,4 @@ FOR SELECT USING (
   organization_id = current_organization_id() AND
   has_permission('AUDIT_READ')
 );
+
