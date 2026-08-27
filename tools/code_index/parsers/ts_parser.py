@@ -44,8 +44,8 @@ class TypeScriptParser(BaseParser):
         type_pattern = re.compile(r"^(?:export\s+)?type\s+([A-Za-z0-9_]+)\s*=")
         enum_pattern = re.compile(r"^(?:export\s+)?enum\s+([A-Za-z0-9_]+)")
         class_pattern = re.compile(r"^(?:export\s+)?(?:default\s+)?class\s+([A-Za-z0-9_]+)")
-        func_pattern = re.compile(r"^(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+([A-Za-z0-9_]+)\s*\(([^)]*)\)")
-        arrow_func_pattern = re.compile(r"^(?:export\s+)?(?:const|let|var)\s+([A-Za-z0-9_]+)\s*=\s*(?:async\s*)?\(([^)]*)\)(?:\s*:\s*[^{=]+)?\s*=>")
+        func_pattern = re.compile(r"^(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+([A-Za-z0-9_]+)\s*\(")
+        arrow_func_pattern = re.compile(r"^(?:export\s+)?(?:const|let|var)\s+([A-Za-z0-9_]+)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z0-9_]+|\()\s*(?::\s*[^{=]+)?\s*=>")
         test_pattern = re.compile(r"^(?:describe|it|test)\(['\"]([^'\"]+)['\"]")
 
         def find_block_end(start_line_idx: int) -> int:

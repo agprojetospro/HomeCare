@@ -51,15 +51,43 @@ export type PatientProfessionalAssignment = z.infer<
 >;
 
 export function hasShiftOverlap(
-  existingShifts: Array<{ startTime: Date; endTime: Date }>,
-  candidate: { startTime: Date; endTime: Date }
+  existingShifts: Array<{
+    startTime: Date;
+    endTime: Date;
+    doctorInChargeId?: string;
+    nurseInChargeId?: string | null;
+  }>,
+  candidate: {
+    startTime: Date;
+    endTime: Date;
+    doctorInChargeId?: string;
+    nurseInChargeId?: string | null;
+  }
 ): boolean {
   return existingShifts.some((shift) => {
     const sStart = new Date(shift.startTime).getTime();
     const sEnd = new Date(shift.endTime).getTime();
     const cStart = new Date(candidate.startTime).getTime();
     const cEnd = new Date(candidate.endTime).getTime();
-    return cStart < sEnd && cEnd > sStart;
+
+    const timeOverlaps = cStart < sEnd && cEnd > sStart;
+    if (!timeOverlaps) return false;
+
+    // Se profissionais foram informados, verificar se há sobreposição do MESMO profissional
+    if (candidate.doctorInChargeId && shift.doctorInChargeId) {
+      if (candidate.doctorInChargeId === shift.doctorInChargeId) return true;
+    }
+    if (candidate.nurseInChargeId && shift.nurseInChargeId) {
+      if (candidate.nurseInChargeId === shift.nurseInChargeId) return true;
+    }
+
+    // Se nenhum profissional específico foi passado para comparação, considerar conflito de horário
+    if (!candidate.doctorInChargeId && !candidate.nurseInChargeId) {
+      return true;
+    }
+
+    return false;
   });
 }
+
 
