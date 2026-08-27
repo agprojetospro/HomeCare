@@ -8,6 +8,9 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "CuraHome CRM | Gestão Integrada de Atenção Domiciliar",
   description: "Plataforma completa de gestão clínica, escalas, comercial e faturamento de Home Care.",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({

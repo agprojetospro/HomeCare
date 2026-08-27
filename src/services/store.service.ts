@@ -1324,6 +1324,46 @@ class HomeCareStore {
     return newPresc;
   }
 
+  // --- PEP: ADMINISTRAÇÃO MEDICAMENTOSA & CHECAGEM BEIRA-LEITO ---
+  public recordMedicationAdministration(data: {
+    episodeId: string;
+    patientId: string;
+    prescriptionId: string;
+    medicationName: string;
+    dosage: string;
+    route: string;
+    status: "ADMINISTRADO" | "RECUSADO" | "SUSPENSO" | "NAO_ADMINISTRADO";
+    administeredById: string;
+    secondCheckerId?: string;
+    refusalReason?: string;
+    batchNumber?: string;
+    notes?: string;
+  }) {
+    const record = {
+      ...data,
+      id: `med_adm_${Date.now()}`,
+      administeredAt: new Date(),
+    };
+
+    this.events.unshift({
+      id: `ev_${Date.now()}`,
+      episodeId: data.episodeId,
+      patientId: data.patientId,
+      eventType: "PROCEDIMENTO",
+      eventTitle: `Administração Medicamentosa: ${data.medicationName} (${data.status})`,
+      eventTimestamp: new Date(),
+      authorName: this.currentUser.name,
+      authorRole: this.currentUser.role,
+      summary: `Dose: ${data.dosage} • Via: ${data.route} • Status: ${data.status}${data.batchNumber ? ` • Lote: ${data.batchNumber}` : ""}${data.refusalReason ? ` • Motivo: ${data.refusalReason}` : ""}`,
+      severity: data.status === "RECUSADO" || data.status === "SUSPENSO" ? "ATENCAO" : "NORMAL",
+      referenceId: record.id,
+    });
+
+    this.audit("MEDICATION_ADMINISTER", "medication_administrations", record.id, data.patientId, record);
+    this.saveToStorage();
+    return record;
+  }
+
   // --- PEP: PROCEDIMENTOS ---
   public getProcedures(patientId: string): Procedure[] {
     return this.procedures

@@ -126,3 +126,4 @@ CREATE POLICY "medication_admin_insert_policy"
   WITH CHECK (
     auth.uid() IS NOT NULL
   );
+

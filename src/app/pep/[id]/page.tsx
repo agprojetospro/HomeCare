@@ -85,6 +85,14 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
   const [isPrescriptionModalOpen, setIsPrescriptionModalOpen] = useState(false);
   const [isProcedureModalOpen, setIsProcedureModalOpen] = useState(false);
   const [isExamModalOpen, setIsExamModalOpen] = useState(false);
+  const [isMedAdminModalOpen, setIsMedAdminModalOpen] = useState(false);
+  const [selectedMedItem, setSelectedMedItem] = useState<{ prescId: string; item: any } | null>(null);
+  const [medAdminForm, setMedAdminForm] = useState({
+    status: "ADMINISTRADO" as "ADMINISTRADO" | "RECUSADO" | "SUSPENSO",
+    batchNumber: "",
+    refusalReason: "",
+    notes: "",
+  });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Forms
@@ -295,6 +303,35 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
     setTimeline(store.getClinicalTimeline(patientId));
     setIsExamModalOpen(false);
     setExamForm({ examName: "" });
+  };
+
+  const handleRecordMedAdmin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedMedItem || !patient) return;
+
+    store.recordMedicationAdministration({
+      episodeId: episode?.id || `ep_${patientId}`,
+      patientId: patient.id!,
+      prescriptionId: selectedMedItem.prescId,
+      medicationName: selectedMedItem.item.medicationName,
+      dosage: `${selectedMedItem.item.dosage} ${selectedMedItem.item.unit}`,
+      route: selectedMedItem.item.route,
+      status: medAdminForm.status,
+      administeredById: currentUser.professionalId || currentUser.id,
+      batchNumber: medAdminForm.batchNumber || undefined,
+      refusalReason: medAdminForm.status !== "ADMINISTRADO" ? medAdminForm.refusalReason : undefined,
+      notes: medAdminForm.notes || undefined,
+    });
+
+    setTimeline(store.getClinicalTimeline(patientId));
+    setIsMedAdminModalOpen(false);
+    setSelectedMedItem(null);
+    setMedAdminForm({
+      status: "ADMINISTRADO",
+      batchNumber: "",
+      refusalReason: "",
+      notes: "",
+    });
   };
 
   return (
@@ -658,6 +695,7 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
                         <TableHead>Via</TableHead>
                         <TableHead>Frequência / Horários</TableHead>
                         <TableHead>Instruções</TableHead>
+                        <TableHead className="text-right">Ação Beira-Leito</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -679,6 +717,19 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
                           </TableCell>
                           <TableCell className="text-xs text-slate-600">
                             {it.instructions || "—"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedMedItem({ prescId: presc.id || "", item: it });
+                                setIsMedAdminModalOpen(true);
+                              }}
+                              className="text-xs gap-1 border-teal-600 text-teal-700 hover:bg-teal-50"
+                            >
+                              <Syringe className="h-3.5 w-3.5" /> Checar Dose
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -1256,6 +1307,97 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Checagem & Administração Medicamentosa Beira-Leito */}
+      <Dialog open={isMedAdminModalOpen} onOpenChange={setIsMedAdminModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Syringe className="h-5 w-5 text-teal-600" />
+              Checagem & Administração de Medicamento
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Registro beira-leito com validação de aprazamento, dose prescrita e rastreabilidade.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedMedItem && (
+            <form onSubmit={handleRecordMedAdmin} className="space-y-4">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                <div className="text-xs text-slate-500 font-medium">Item Prescrito</div>
+                <div className="text-sm font-bold text-slate-900">{selectedMedItem.item.medicationName}</div>
+                <div className="flex items-center gap-3 text-xs text-slate-600 font-mono">
+                  <span>Dose: {selectedMedItem.item.dosage} {selectedMedItem.item.unit}</span>
+                  <span>Via: {selectedMedItem.item.route}</span>
+                  <span>Freq: {selectedMedItem.item.frequency}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="medStatus">Status da Administração *</Label>
+                <select
+                  id="medStatus"
+                  className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 py-1 text-xs shadow-xs focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  value={medAdminForm.status}
+                  onChange={(e) => setMedAdminForm({ ...medAdminForm, status: e.target.value as any })}
+                >
+                  <option value="ADMINISTRADO">ADMINISTRADO (Dose checada e aplicada)</option>
+                  <option value="RECUSADO">RECUSADO (Paciente recusou a medicação)</option>
+                  <option value="SUSPENSO">SUSPENSO (Suspenso por conduta médica)</option>
+                </select>
+              </div>
+
+              {medAdminForm.status === "ADMINISTRADO" && (
+                <div className="space-y-1">
+                  <Label htmlFor="batchNumber">Lote / Validade do Frasco/Ampola</Label>
+                  <Input
+                    id="batchNumber"
+                    value={medAdminForm.batchNumber}
+                    onChange={(e) => setMedAdminForm({ ...medAdminForm, batchNumber: e.target.value })}
+                    placeholder="Ex: LOTE-2026-X49"
+                    className="text-xs"
+                  />
+                </div>
+              )}
+
+              {medAdminForm.status !== "ADMINISTRADO" && (
+                <div className="space-y-1">
+                  <Label htmlFor="refusalReason">Justificativa / Motivo da Não Administração *</Label>
+                  <Input
+                    id="refusalReason"
+                    required
+                    value={medAdminForm.refusalReason}
+                    onChange={(e) => setMedAdminForm({ ...medAdminForm, refusalReason: e.target.value })}
+                    placeholder="Ex: Paciente relatou náusea intensa e recusou VO"
+                    className="text-xs border-amber-300 focus:ring-amber-500"
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <Label htmlFor="medNotes">Observações de Enfermagem</Label>
+                <Input
+                  id="medNotes"
+                  value={medAdminForm.notes}
+                  onChange={(e) => setMedAdminForm({ ...medAdminForm, notes: e.target.value })}
+                  placeholder="Ex: Administrado sem queixas, tolerado bem"
+                  className="text-xs"
+                />
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsMedAdminModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" className="gap-2 bg-teal-600 hover:bg-teal-700 text-white">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Confirmar Checagem
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </div>
