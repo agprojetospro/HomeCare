@@ -15,6 +15,7 @@ import {
   Exam,
   evaluateVitalSignAlerts,
 } from "@/domain/pep/pep.schema";
+import { Pad, MultidisciplinaryVisit, EquipmentAndMaterial } from "@/domain/pad/pad.schema";
 import { UserRole, authorizePatientAccess } from "@/domain/security/rbac";
 import { AuditLog, createAuditEntry } from "@/domain/audit/audit";
 
@@ -433,6 +434,85 @@ const INITIAL_CARE_PLANS: CarePlan[] = [
   },
 ];
 
+const INITIAL_PADS: Pad[] = [
+  {
+    id: "pad_antonio",
+    organizationId: "org_curahome",
+    unitId: "unit_ilheus",
+    episodeId: "ep_antonio",
+    patientId: "pat_antonio",
+    version: 1,
+    careRegime: "HOME_CARE_12H_DIURNO",
+    startDate: new Date("2026-08-20T00:00:00Z"),
+    reviewIntervalDays: 30,
+    status: "ATIVO",
+    createdById: "prof_roberta",
+    clinicalGoals: "Manutenção da ventilação espontânea sob macronebulização, prevenção de broncoaspiração, reabilitação motora e cicatrização de lesão sacral grau I.",
+    visits: [
+      {
+        id: "vis_1",
+        profession: "FISIOTERAPEUTA",
+        frequencyPerWeek: 3,
+        durationMinutes: 60,
+        objective: "Cinesioterapia motora global e higiene brônquica.",
+        professionalInChargeId: "prof_carlos",
+      },
+      {
+        id: "vis_2",
+        profession: "FONOAUDIOLOGO",
+        frequencyPerWeek: 2,
+        durationMinutes: 45,
+        objective: "Avaliação de deglutição e treino vocal pós-traqueostomia.",
+        professionalInChargeId: null,
+      },
+      {
+        id: "vis_3",
+        profession: "NUTRICIONISTA",
+        frequencyPerWeek: 1,
+        durationMinutes: 45,
+        objective: "Ajuste de aporte calórico-proteico em dieta enteral (SNE).",
+        professionalInChargeId: null,
+      },
+    ],
+    equipment: [
+      {
+        id: "eq_1",
+        itemCategory: "RESPIRATORIO",
+        itemName: "Concentrador de Oxigênio 5L/min",
+        quantity: 1,
+        specifications: "Com copo umidificador e extensor",
+        status: "EM_USO",
+      },
+      {
+        id: "eq_2",
+        itemCategory: "RESPIRATORIO",
+        itemName: "Aspirador de Secreções Portátil",
+        quantity: 1,
+        specifications: "Com frasco coletor autoclavável",
+        status: "EM_USO",
+      },
+      {
+        id: "eq_3",
+        itemCategory: "MOBILIARIO",
+        itemName: "Cama Hospitalar Fawler com Manivelas",
+        quantity: 1,
+        specifications: "Com grades de proteção laterais",
+        status: "EM_USO",
+      },
+      {
+        id: "eq_4",
+        itemCategory: "MOBILIARIO",
+        itemName: "Colchão Pneumático Anti-Escaras",
+        quantity: 1,
+        specifications: "Com compressor de pressão alternada 110V",
+        status: "EM_USO",
+      },
+    ],
+    createdAt: new Date("2026-08-20T10:00:00Z"),
+    updatedAt: new Date("2026-08-20T10:00:00Z"),
+  },
+];
+
 const INITIAL_SHIFTS: Shift[] = [
   {
     id: "shift_today_diurno",
@@ -575,6 +655,7 @@ class HomeCareStore {
   private assignments: PatientProfessionalAssignment[] = INITIAL_ASSIGNMENTS;
   private triages: Triage[] = INITIAL_TRIAGES;
   private carePlans: CarePlan[] = INITIAL_CARE_PLANS;
+  private pads: Pad[] = INITIAL_PADS;
   private shifts: Shift[] = INITIAL_SHIFTS;
   private evolutions: ClinicalEvolution[] = INITIAL_EVOLUTIONS;
   private vitals: VitalSigns[] = INITIAL_VITALS;
@@ -831,6 +912,60 @@ class HomeCareStore {
     this.carePlans.push(newPlan);
     this.audit("CARE_PLAN_CREATE", "care_plans", newPlan.id, data.patientId, newPlan);
     return newPlan;
+  }
+
+  // --- PLANO DE ATENÇÃO DOMICILIAR (PAD) ---
+  public getPads(patientId?: string): Pad[] {
+    if (patientId) {
+      return this.pads.filter((p) => p.patientId === patientId);
+    }
+    return this.pads;
+  }
+
+  public getPadById(id: string): Pad | undefined {
+    return this.pads.find((p) => p.id === id);
+  }
+
+  public getPadByPatientId(patientId: string): Pad | undefined {
+    return this.pads.find((p) => p.patientId === patientId && p.status === "ATIVO");
+  }
+
+  public createPad(data: Omit<Pad, "id" | "createdAt" | "updatedAt">): Pad {
+    const newPad: Pad = {
+      ...data,
+      id: `pad_${Date.now()}`,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.pads.push(newPad);
+    this.events.unshift({
+      id: `ev_${Date.now()}`,
+      episodeId: data.episodeId,
+      patientId: data.patientId,
+      eventType: "PROCEDIMENTO",
+      eventTitle: `Plano Assistencial (PAD) Estruturado v${data.version}`,
+      eventTimestamp: new Date(),
+      authorName: this.currentUser.name,
+      authorRole: this.currentUser.role,
+      summary: `Regime: ${data.careRegime} • ${data.visits.length} visitas multidisciplinares • ${data.equipment.length} equipamentos/insumos`,
+      severity: "NORMAL",
+      referenceId: newPad.id,
+    });
+    this.audit("CARE_PLAN_CREATE", "pads", newPad.id, data.patientId, newPad);
+    return newPad;
+  }
+
+  public updatePad(id: string, data: Partial<Pad>): Pad | undefined {
+    const idx = this.pads.findIndex((p) => p.id === id);
+    if (idx === -1) return undefined;
+    const updated: Pad = {
+      ...this.pads[idx],
+      ...data,
+      updatedAt: new Date(),
+    };
+    this.pads[idx] = updated;
+    this.audit("CARE_PLAN_MANAGE", "pads", updated.id, updated.patientId, updated);
+    return updated;
   }
 
   // --- ESCALAS & PLANTÕES ---

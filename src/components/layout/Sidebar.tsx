@@ -13,6 +13,7 @@ import {
   ChevronRight,
   HeartPulse,
   History,
+  FileHeart,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { store } from "@/services/store.service";
@@ -25,6 +26,7 @@ const navigation = [
       { name: "Painel Geral", href: "/", icon: LayoutDashboard },
       { name: "Pacientes & Admissão", href: "/pacientes", icon: Users },
       { name: "Triagem & Elegibilidade", href: "/triagem", icon: ClipboardList },
+      { name: "Planos de Cuidado (PAD)", href: "/pad", icon: FileHeart },
       { name: "Profissionais de Saúde", href: "/profissionais", icon: UserCheck },
     ],
   },
