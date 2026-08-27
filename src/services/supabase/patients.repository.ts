@@ -152,3 +152,4 @@ export class PatientsRepository {
 }
 
 export const patientsRepository = new PatientsRepository();
+

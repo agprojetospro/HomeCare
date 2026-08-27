@@ -16,3 +16,4 @@ export const supabase: any = createClient(
   supabaseUrl,
   supabaseAnonKey
 );
+

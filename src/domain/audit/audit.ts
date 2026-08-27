@@ -48,9 +48,10 @@ export const AuditLogSchema = z.object({
 
 export type AuditLog = z.infer<typeof AuditLogSchema>;
 
-export function createAuditEntry(params: Omit<AuditLog, "id" | "createdAt">): AuditLog {
+export function createAuditEntry(params: Omit<AuditLog, "id" | "createdAt"> & { id?: string }): AuditLog {
   return AuditLogSchema.parse({
     ...params,
+    id: params.id || `aud_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
     createdAt: new Date(),
   });
 }

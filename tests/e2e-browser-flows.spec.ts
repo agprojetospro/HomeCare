@@ -83,4 +83,23 @@ test.describe("HomeCare E2E Browser Flows & Zero-Console-Error Validation", () =
 
     expect(consoleErrors).toHaveLength(0);
   });
+
+  test("5. Deve renderizar e operar com responsividade em Tablet (1024x768) e Mobile (390x844)", async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on("pageerror", (err) => consoleErrors.push(err.message));
+
+    // Viewport Tablet (iPad)
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto("/pep/pat_antonio");
+    await expect(page.locator("text=Antônio Carlos de Albuquerque")).toBeVisible();
+    await expect(page.locator("main")).toBeVisible();
+
+    // Viewport Mobile (iPhone)
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/alertas");
+    await expect(page.locator("text=Central de Alertas & Beira-Leito")).toBeVisible();
+    await expect(page.locator("main")).toBeVisible();
+
+    expect(consoleErrors).toHaveLength(0);
+  });
 });

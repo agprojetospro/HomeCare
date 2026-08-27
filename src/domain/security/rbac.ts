@@ -50,7 +50,8 @@ export type PermissionAction =
   | "PROFESSIONAL_MANAGE"
   | "AUDIT_READ"
   | "ORGANIZATION_MANAGE"
-  | "UNIT_MANAGE";
+  | "UNIT_MANAGE"
+  | "BILLING_MANAGE";
 
 export interface RolePermissionRule {
   action: PermissionAction;
@@ -67,6 +68,7 @@ export const ROLE_DEFINITIONS: Record<UserRole, RolePermissionRule[]> = {
     { action: "SHIFT_READ", scope: "GLOBAL" },
     { action: "SHIFT_MANAGE", scope: "GLOBAL" },
     { action: "AUDIT_READ", scope: "GLOBAL" },
+    { action: "BILLING_MANAGE", scope: "GLOBAL" },
   ],
   ADMIN: [
     { action: "ORGANIZATION_MANAGE", scope: "ORGANIZATION" },
@@ -81,6 +83,7 @@ export const ROLE_DEFINITIONS: Record<UserRole, RolePermissionRule[]> = {
     { action: "SHIFT_MANAGE", scope: "ORGANIZATION" },
     { action: "SHIFT_ASSIGN_PATIENT", scope: "ORGANIZATION" },
     { action: "AUDIT_READ", scope: "ORGANIZATION" },
+    { action: "BILLING_MANAGE", scope: "ORGANIZATION" },
   ],
   GESTOR_UNIDADE: [
     { action: "UNIT_MANAGE", scope: "UNIT" },
@@ -205,6 +208,7 @@ export const ROLE_DEFINITIONS: Record<UserRole, RolePermissionRule[]> = {
   FATURAMENTO: [
     { action: "PATIENT_READ", scope: "ORGANIZATION" },
     { action: "SHIFT_READ", scope: "ORGANIZATION" },
+    { action: "BILLING_MANAGE", scope: "ORGANIZATION" },
   ],
   AUDITOR_CLINICO: [
     { action: "PATIENT_READ", scope: "ORGANIZATION" },
@@ -216,6 +220,100 @@ export const ROLE_DEFINITIONS: Record<UserRole, RolePermissionRule[]> = {
     { action: "PEP_READ", scope: "OWN" },
   ],
 };
+
+/**
+ * Verifica se a ação solicitada é um ato clínico exclusivo/reservado
+ */
+export function isClinicalAction(action: PermissionAction): boolean {
+  const clinicalActions: PermissionAction[] = [
+    "EVOLUTION_CREATE",
+    "EVOLUTION_FINALIZE",
+    "PRESCRIPTION_CREATE",
+    "PRESCRIPTION_FINALIZE",
+    "MEDICATION_ADMINISTER",
+    "PROCEDURE_RECORD",
+    "EXAM_REQUEST",
+    "VITAL_SIGNS_RECORD",
+    "TRIAGE_EXECUTE",
+  ];
+  return clinicalActions.includes(action);
+}
+
+/**
+ * Validação rigorosa de Execução de Ato Clínico (ADMINISTRAR ≠ EXECUTAR ATO CLÍNICO)
+ */
+export function validateClinicalExecution(params: {
+  userRole: UserRole;
+  activeContextRole?: UserRole;
+  professionalId?: string | null;
+  professionalStatus?: string;
+  councilNumber?: string | null;
+  councilType?: string | null;
+  action: PermissionAction;
+}): { authorized: boolean; reason?: string } {
+  const effectiveRole = params.activeContextRole || params.userRole;
+
+  // 1. ADMIN puro sem contexto clínico ativo
+  if (effectiveRole === "ADMIN" || effectiveRole === "SUPER_ADMIN" || effectiveRole === "FATURAMENTO") {
+    if (isClinicalAction(params.action)) {
+      return {
+        authorized: false,
+        reason: "ADMINISTRAR ≠ EXECUTAR ATO CLÍNICO: O papel administrativo não possui habilitação para executar ou assinar atos clínicos reservados.",
+      };
+    }
+  }
+
+  // 2. Para atos clínicos, exigir cadastro profissional ativo e conselho de classe
+  if (isClinicalAction(params.action)) {
+    if (!params.professionalId) {
+      return {
+        authorized: false,
+        reason: "Acesso negado: Ação clínica requer identificador de profissional de saúde vinculado.",
+      };
+    }
+
+    if (params.professionalStatus && params.professionalStatus !== "ATIVO" && params.professionalStatus !== "ACTIVE") {
+      return {
+        authorized: false,
+        reason: `Acesso negado: Profissional de saúde com status inativo ou suspenso (${params.professionalStatus}).`,
+      };
+    }
+
+    // Ações médicas exclusivas
+    if (params.action === "PRESCRIPTION_CREATE" || params.action === "PRESCRIPTION_FINALIZE") {
+      if (effectiveRole !== "MEDICO") {
+        return {
+          authorized: false,
+          reason: "Acesso negado: Prescrição médica é um ato privativo de profissional Médico com CRM ativo.",
+        };
+      }
+      if (params.councilType && params.councilType !== "CRM") {
+        return {
+          authorized: false,
+          reason: "Acesso negado: Conselho profissional informado não é CRM.",
+        };
+      }
+    }
+  }
+
+  return { authorized: true };
+}
+
+/**
+ * Validação de Troca de Contexto (Context Switching Seguro - Prevenção de Escalonamento de Privilégios)
+ */
+export function validateContextSwitch(
+  grantedRoles: UserRole[],
+  targetRole: UserRole
+): { allowed: boolean; reason?: string } {
+  if (!grantedRoles.includes(targetRole)) {
+    return {
+      allowed: false,
+      reason: `Escalonamento de Privilégios Negado: O usuário não possui a concessão do papel '${targetRole}'.`,
+    };
+  }
+  return { allowed: true };
+}
 
 export function hasPermission(
   role: UserRole,
@@ -240,11 +338,13 @@ export function hasPermission(
 }
 
 /**
- * Resolução Contextual Completa de Acesso ao Paciente
+ * Resolução Contextual Completa de Acesso ao Paciente (Anti-IDOR)
  */
 export function authorizePatientAccess(params: {
   userRole: UserRole;
+  activeContextRole?: UserRole;
   userStatus?: string;
+  professionalStatus?: string;
   userOrgId?: string;
   patientOrgId?: string;
   userUnitIds?: string[];
@@ -259,20 +359,29 @@ export function authorizePatientAccess(params: {
     isActive: boolean;
   }>;
 }): { authorized: boolean; reason?: string } {
+  const effectiveRole = params.activeContextRole || params.userRole;
   const userOrg = params.userOrgId || "org_curahome";
   const patientOrg = params.patientOrgId || "org_curahome";
   const userUnits = params.userUnitIds || ["unit_ilheus"];
   const profId = params.professionalId || params.userId;
 
   // 1. Validar Status do Usuário
-  if (params.userStatus && params.userStatus !== "ACTIVE") {
+  if (params.userStatus && params.userStatus !== "ACTIVE" && params.userStatus !== "ATIVO") {
     return {
       authorized: false,
       reason: `Acesso negado: Conta com status ${params.userStatus}.`,
     };
   }
 
-  // 2. Validar Isolamento de Organização
+  // 2. Validar Status do Profissional (se aplicável)
+  if (params.professionalStatus && params.professionalStatus !== "ACTIVE" && params.professionalStatus !== "ATIVO") {
+    return {
+      authorized: false,
+      reason: `Acesso negado: Profissional com status ${params.professionalStatus}.`,
+    };
+  }
+
+  // 3. Validar Isolamento Multitenant (Organização A vs B)
   if (userOrg !== patientOrg) {
     return {
       authorized: false,
@@ -280,23 +389,26 @@ export function authorizePatientAccess(params: {
     };
   }
 
-  // 3. Checar Permissão de Leitura
-  const rules = ROLE_DEFINITIONS[params.userRole] || [];
-  const pepRule = rules.find((r) => r.action === "PEP_READ" || r.action === "PATIENT_READ");
-  if (!pepRule) {
+  // 4. Checar Permissão de Leitura para o Papel Efetivo
+  const rules = ROLE_DEFINITIONS[effectiveRole] || [];
+  const pepRule = rules.find((r) => r.action === "PEP_READ");
+  const patRule = rules.find((r) => r.action === "PATIENT_READ");
+  const relevantRule = pepRule || patRule;
+  
+  if (!relevantRule) {
     return {
       authorized: false,
       reason: "Acesso negado: Perfil não possui permissão de leitura de prontuário.",
     };
   }
 
-  // 4. Escopo GLOBAL / ORGANIZATION (Ex: Admin, Auditor)
-  if (pepRule.scope === "GLOBAL" || pepRule.scope === "ORGANIZATION") {
+  // 5. Escopo GLOBAL / ORGANIZATION (Ex: Admin Operacional, Auditor Clínico)
+  if (relevantRule.scope === "GLOBAL" || relevantRule.scope === "ORGANIZATION") {
     return { authorized: true };
   }
 
-  // 5. Escopo UNIT (Ex: Gestor de Unidade, Atendimento)
-  if (pepRule.scope === "UNIT") {
+  // 6. Escopo UNIT (Ex: Gestor de Unidade, Atendimento)
+  if (relevantRule.scope === "UNIT") {
     if (params.patientUnitId && userUnits.includes(params.patientUnitId)) {
       return { authorized: true };
     }
@@ -306,8 +418,8 @@ export function authorizePatientAccess(params: {
     };
   }
 
-  // 6. Escopo OWN / Vínculo Assistencial Direto (Anti-IDOR)
-  if (pepRule.scope === "OWN" || pepRule.scope === "TEAM") {
+  // 7. Escopo OWN / TEAM (Anti-IDOR com Vínculo Assistencial Obrigatório)
+  if (relevantRule.scope === "OWN" || relevantRule.scope === "TEAM") {
     const hasAssignment = params.activeAssignments.some((a) => {
       const matchProf = (a.professionalId && a.professionalId === profId) ||
                         (a.professionalUserId && a.professionalUserId === profId);
