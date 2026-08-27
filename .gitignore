@@ -40,3 +40,5 @@ next-env.d.ts
 
 # homecare code index
 .homecare-index/
+__pycache__/
+*.pyc
