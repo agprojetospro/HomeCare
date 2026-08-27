@@ -11,6 +11,7 @@ import {
   Exam,
   evaluateVitalSignAlerts,
 } from "@/domain/pep/pep.schema";
+import { ClinicalScoreResult } from "@/domain/clinical-score/news2.schema";
 import { authorizePatientAccess } from "@/domain/security/rbac";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -74,6 +75,7 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
   // Dados do PEP
   const [evolutions, setEvolutions] = useState<ClinicalEvolution[]>([]);
   const [vitals, setVitals] = useState<VitalSigns[]>([]);
+  const [news2Scores, setNews2Scores] = useState<ClinicalScoreResult[]>(store.getNews2Scores(patientId));
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [procedures, setProcedures] = useState<Procedure[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
@@ -230,6 +232,7 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
     });
 
     setVitals(store.getVitals(patientId));
+    setNews2Scores(store.getNews2Scores(patientId));
     setTimeline(store.getClinicalTimeline(patientId));
     setIsVitalsModalOpen(false);
   };
@@ -741,11 +744,73 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
           </div>
         </TabsContent>
 
-        {/* 4. ABA SINAIS VITAIS */}
+        {/* 4. ABA SINAIS VITAIS & NEWS2 */}
         <TabsContent value="sinais" className="space-y-4">
+          {/* Card de Estratificação NEWS2-BR */}
+          {news2Scores.length > 0 && (
+            <Card
+              className={`border transition-all ${
+                news2Scores[0].riskLevel === "HIGH"
+                  ? "border-red-300 bg-red-50/50"
+                  : news2Scores[0].riskLevel === "MEDIUM" || news2Scores[0].riskLevel === "LOW_MEDIUM"
+                  ? "border-amber-300 bg-amber-50/50"
+                  : "border-emerald-300 bg-emerald-50/50"
+              }`}
+            >
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`p-2.5 rounded-xl text-white font-mono font-bold text-lg flex items-center justify-center ${
+                        news2Scores[0].riskLevel === "HIGH"
+                          ? "bg-red-600 animate-pulse"
+                          : news2Scores[0].riskLevel === "MEDIUM" || news2Scores[0].riskLevel === "LOW_MEDIUM"
+                          ? "bg-amber-600"
+                          : "bg-emerald-600"
+                      }`}
+                    >
+                      {news2Scores[0].score}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-900">
+                          Escore NEWS2-BR (Deterioração Clínica)
+                        </span>
+                        <Badge
+                          variant={
+                            news2Scores[0].riskLevel === "HIGH"
+                              ? "destructive"
+                              : news2Scores[0].riskLevel === "MEDIUM" || news2Scores[0].riskLevel === "LOW_MEDIUM"
+                              ? "warning"
+                              : "success"
+                          }
+                          className="text-[10px]"
+                        >
+                          {news2Scores[0].riskLevel === "HIGH"
+                            ? "ALTO RISCO (EMERGÊNCIA)"
+                            : news2Scores[0].riskLevel === "MEDIUM"
+                            ? "MÉDIO RISCO"
+                            : news2Scores[0].riskLevel === "LOW_MEDIUM"
+                            ? "RISCO MODERADO (PARÂMETRO 3)"
+                            : "BAIXO RISCO"}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-slate-700 mt-1 font-medium">
+                        {news2Scores[0].recommendedAction}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-slate-500 font-mono shrink-0">
+                    Versão: {news2Scores[0].scoreVersion} • Aferido: {formatDateTime(news2Scores[0].calculatedAt)}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-800">Histórico de Sinais Vitais</h3>
-            <Button size="sm" onClick={() => setIsVitalsModalOpen(true)} className="gap-1.5 text-xs bg-teal-600 hover:bg-teal-700">
+            <h3 className="text-sm font-bold text-slate-800">Histórico de Sinais Vitais & Telemetria</h3>
+            <Button size="sm" onClick={() => setIsVitalsModalOpen(true)} className="gap-1.5 text-xs bg-teal-600 hover:bg-teal-700 text-white">
               <PlusCircle className="h-3.5 w-3.5" /> Registrar Aferição
             </Button>
           </div>
@@ -761,13 +826,14 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
                     <TableHead>SpO2</TableHead>
                     <TableHead>Temp</TableHead>
                     <TableHead>Glicemia</TableHead>
-                    <TableHead>Dor</TableHead>
+                    <TableHead>NEWS2</TableHead>
                     <TableHead>Alertas</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {vitals.map((v) => {
                     const alerts = evaluateVitalSignAlerts(v);
+                    const scoreForVital = news2Scores.find((s) => s.vitalSignsId === v.id) || (news2Scores.length > 0 ? news2Scores[0] : null);
                     return (
                       <TableRow key={v.id}>
                         <TableCell className="text-xs font-medium text-slate-700">
@@ -782,7 +848,24 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
                         </TableCell>
                         <TableCell className="font-mono text-xs">{v.temperature}°C</TableCell>
                         <TableCell className="font-mono text-xs">{v.bloodGlucose ? `${v.bloodGlucose} mg/dL` : "—"}</TableCell>
-                        <TableCell className="font-mono text-xs">{v.painScore}/10</TableCell>
+                        <TableCell>
+                          {scoreForVital ? (
+                            <Badge
+                              variant={
+                                scoreForVital.riskLevel === "HIGH"
+                                  ? "destructive"
+                                  : scoreForVital.riskLevel === "MEDIUM" || scoreForVital.riskLevel === "LOW_MEDIUM"
+                                  ? "warning"
+                                  : "success"
+                              }
+                              className="text-[10px] font-mono"
+                            >
+                              Score: {scoreForVital.score}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-slate-400 font-mono">—</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           {alerts.length > 0 ? (
                             <div className="flex flex-wrap gap-1">

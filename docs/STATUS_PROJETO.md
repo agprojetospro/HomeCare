@@ -1,6 +1,6 @@
 # Matriz de Status do Projeto — HomeCare
 
-Última atualização: 27/08/2026 (Fundação P0 Completa com 100% de Testes de Segurança & E2E)
+Última atualização: 27/08/2026 (ONDA 1: Protocolo NEWS2 & Alertas Concluído com 100% dos Quality Gates)
 
 | Etapa / Módulo | Modelagem | Banco (DDL/RLS) | Frontend | Segurança / RBAC | Testes Automatizados | E2E | Status Geral |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -21,3 +21,9 @@
 | **P3: Plano Assistencial Estruturado** | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | **CONCLUÍDO** |
 | **P4: Plantões & Escalas com Médico Obrigatório** | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | **CONCLUÍDO** |
 | **P5: PEP Contextual, Sinais, Prescrição & Imutabilidade**| CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | **CONCLUÍDO** |
+| **ONDA 1: NEWS2 / Detecção Precoce de Deterioração & Alertas** | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | **CONCLUÍDO** |
+| **ONDA 2: Visitas, Check-in/Out & Geofencing GPS** | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | **PENDENTE** |
+| **ONDA 3: Gestão de Insumos, Oxigenoterapia & Curativos** | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | **PENDENTE** |
+| **ONDA 4: Portal do Familiar & Camada de Visibilidade LGPD** | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | **PENDENTE** |
+| **ONDA 5: Offline-First / PWA com Sincronização Idempotente** | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | **PENDENTE** |
+| **ONDA 6: Central Operacional Integrada & Drill-Down** | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | **PENDENTE** |

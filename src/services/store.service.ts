@@ -1255,14 +1255,13 @@ class HomeCareStore {
     return { success: true, evolution: newEvo };
   }
 
-  // --- PEP: SINAIS VITAIS ---
+  // --- PEP: SINAIS VITAIS & ESCORE NEWS2 ---
   public getVitals(patientId: string): VitalSigns[] {
     return this.vitals
       .filter((v) => v.patientId === patientId)
       .sort((a, b) => new Date(b.measuredAt).getTime() - new Date(a.measuredAt).getTime());
   }
 
-  public recordVitals(data: Omit<VitalSigns, "id">): { vitals: VitalSigns; alerts: any[] } {
     const newVitals: VitalSigns = {
       ...data,
       id: `vit_${Date.now()}`,
@@ -1270,28 +1269,23 @@ class HomeCareStore {
     this.vitals.push(newVitals);
 
     const alerts = evaluateVitalSignAlerts(newVitals);
-    const maxSeverity = alerts.some((a) => a.severity === "CRITICO")
-      ? "CRITICO"
-      : alerts.length > 0
-      ? "ATENCAO"
-      : "NORMAL";
 
     this.events.unshift({
       id: `ev_${Date.now()}`,
       episodeId: data.episodeId,
       patientId: data.patientId,
       eventType: "SINAIS_VITAIS",
-      eventTitle: `Aferição de Sinais Vitais — PA ${data.systolicBp}x${data.diastolicBp}, SpO2 ${data.oxygenSaturation}%, FC ${data.heartRate} bpm`,
+      eventTitle: `Aferição de Sinais Vitais — NEWS2 Score: ${calculation.score} (${calculation.riskLevel})`,
       eventTimestamp: new Date(),
       authorName: this.currentUser.name,
       authorRole: this.currentUser.role,
-      summary: alerts.length > 0 ? alerts.map((a) => a.message).join(" | ") : "Parâmetros estáveis.",
+      summary: `PA ${data.systolicBp}x${data.diastolicBp} • SpO2 ${data.oxygenSaturation}% • FC ${data.heartRate} bpm • Temp ${data.temperature}°C | ${calculation.recommendedAction}`,
       severity: maxSeverity,
       referenceId: newVitals.id,
     });
 
+    this.audit("NEWS2_CALCULATE", "clinical_score_results", scoreResult.id, data.patientId, scoreResult);
     this.audit("VITAL_SIGNS_RECORD", "vital_signs", newVitals.id, data.patientId, newVitals);
-    return { vitals: newVitals, alerts };
   }
 
   // --- PEP: PRESCRIÇÕES ---

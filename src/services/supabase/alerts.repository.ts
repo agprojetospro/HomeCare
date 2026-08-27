@@ -9,7 +9,6 @@ export interface SystemAlert {
   alertType: string;
   description: string;
   timestamp: string;
-  status: "EM_ATENDIMENTO" | "CONDUTA_REGISTRADA" | "RESOLVIDO";
   careLocation: string;
   doctorInCharge: string;
 }

@@ -7,6 +7,16 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Bell,
   AlertTriangle,
@@ -20,6 +30,7 @@ import {
   Stethoscope,
   Users,
   Search,
+  CheckCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
@@ -28,6 +39,10 @@ export default function AlertasPage() {
   const [alerts, setAlerts] = useState<SystemAlert[]>([]);
   const [patients, setPatients] = useState(store.getPatients());
   const [search, setSearch] = useState("");
+  const [selectedAlert, setSelectedAlert] = useState<SystemAlert | null>(null);
+  const [isActionModalOpen, setIsActionModalOpen] = useState(false);
+  const [actionNotes, setActionNotes] = useState("");
+  const [actionStatus, setActionStatus] = useState<"RECONHECIDO" | "RESOLVIDO">("RESOLVIDO");
 
   useEffect(() => {
     store.initClient();
@@ -35,8 +50,8 @@ export default function AlertasPage() {
     alertsRepository.getActiveAlerts().then(setAlerts);
   }, []);
 
-  const criticalCount = alerts.filter((a) => a.severity === "CRITICO").length;
-  const warningCount = alerts.filter((a) => a.severity === "ALERTA").length;
+  const criticalCount = alerts.filter((a) => a.severity === "CRITICO" && a.status !== "RESOLVIDO").length;
+  const warningCount = alerts.filter((a) => a.severity === "ALERTA" && a.status !== "RESOLVIDO").length;
 
   const filtered = alerts.filter((a) => {
     const q = search.toLowerCase();
@@ -47,6 +62,35 @@ export default function AlertasPage() {
     );
   });
 
+  const handleOpenAction = (alert: SystemAlert) => {
+    setSelectedAlert(alert);
+    setActionNotes("");
+    setActionStatus("RESOLVIDO");
+    setIsActionModalOpen(true);
+  };
+
+  const handleConfirmAction = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAlert) return;
+
+    setAlerts((prev) =>
+      prev.map((a) =>
+        a.id === selectedAlert.id
+          ? { ...a, status: actionStatus, notes: actionNotes }
+          : a
+      )
+    );
+
+    store.logAudit("CLINICAL_ALERT_RESOLVED", "clinical_alerts", selectedAlert.id, selectedAlert.patientId || null, {
+      status: actionStatus,
+      notes: actionNotes,
+      alertType: selectedAlert.alertType,
+    });
+
+    setIsActionModalOpen(false);
+    setSelectedAlert(null);
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Header */}
@@ -54,15 +98,15 @@ export default function AlertasPage() {
         <div>
           <div className="flex items-center gap-2">
             <Badge variant="destructive" className="text-xs">
-              Monitoramento Fisiológico & Clínico
+              Monitoramento Fisiológico & Escore NEWS2
             </Badge>
-            <span className="text-xs text-slate-500 font-medium">Telemetria em Tempo Real</span>
+            <span className="text-xs text-slate-500 font-medium">Telemetria & Estratificação de Risco</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 mt-1">
             Central de Alertas & Beira-Leito
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            Triagem automatizada de desvios de sinais vitais, intercorrências e acionamento de suporte médico imediato.
+            Triagem automatizada NEWS2, desvios de sinais vitais e acionamento de conduta médica imediata.
           </p>
         </div>
 
@@ -80,7 +124,7 @@ export default function AlertasPage() {
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <Card className="border-red-200 bg-red-50/40 shadow-xs">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold text-red-900">Alertas Críticos (Nível 1)</CardTitle>
+            <CardTitle className="text-xs font-semibold text-red-900">Alertas Críticos / NEWS2 &gt;= 7</CardTitle>
             <ShieldAlert className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
@@ -91,7 +135,7 @@ export default function AlertasPage() {
 
         <Card className="border-amber-200 bg-amber-50/40 shadow-xs">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-semibold text-amber-900">Atenção Clínica (Nível 2)</CardTitle>
+            <CardTitle className="text-xs font-semibold text-amber-900">Atenção Clínica (NEWS2 5-6)</CardTitle>
             <AlertTriangle className="h-4 w-4 text-amber-600" />
           </CardHeader>
           <CardContent>
@@ -147,21 +191,27 @@ export default function AlertasPage() {
             <div
               key={alt.id}
               className={`p-4 rounded-xl border transition-all ${
-                alt.severity === "CRITICO"
+                alt.status === "RESOLVIDO"
+                  ? "bg-slate-50 border-slate-200 opacity-60"
+                  : alt.severity === "CRITICO"
                   ? "bg-red-50/50 border-red-200"
-                  : alt.severity === "ALERTA"
-                  ? "bg-amber-50/50 border-amber-200"
-                  : "bg-slate-50/70 border-slate-200"
+                  : "bg-amber-50/50 border-amber-200"
               }`}
             >
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
                     <Badge
-                      variant={alt.severity === "CRITICO" ? "destructive" : alt.severity === "ALERTA" ? "warning" : "secondary"}
+                      variant={
+                        alt.status === "RESOLVIDO"
+                          ? "secondary"
+                          : alt.severity === "CRITICO"
+                          ? "destructive"
+                          : "warning"
+                      }
                       className="text-xs"
                     >
-                      {alt.severity}
+                      {alt.status === "RESOLVIDO" ? "RESOLVIDO" : alt.severity}
                     </Badge>
                     <span className="font-bold text-sm text-slate-900">{alt.alertType}</span>
                     <span className="text-xs text-slate-400 font-mono">• {alt.timestamp}</span>
@@ -182,15 +232,86 @@ export default function AlertasPage() {
                       </Button>
                     </Link>
                   )}
-                  <Button size="sm" className="bg-slate-900 hover:bg-slate-800 text-white text-xs gap-1">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Registrar Conduta
-                  </Button>
+                  {alt.status !== "RESOLVIDO" ? (
+                    <Button
+                      size="sm"
+                      onClick={() => handleOpenAction(alt)}
+                      className="bg-slate-900 hover:bg-slate-800 text-white text-xs gap-1"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Registrar Conduta
+                    </Button>
+                  ) : (
+                    <Badge variant="success" className="gap-1 text-xs py-1">
+                      <CheckCheck className="h-3.5 w-3.5" /> Conduta Concluída
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>
           ))}
         </CardContent>
       </Card>
+
+      {/* Modal: Registrar Conduta / Encerrar Alerta */}
+      <Dialog open={isActionModalOpen} onOpenChange={setIsActionModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-teal-600" />
+              Registrar Conduta Assistencial
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Registro formal e auditado da conduta clínica adotada para encerramento da intercorrência.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedAlert && (
+            <form onSubmit={handleConfirmAction} className="space-y-4">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                <div className="text-xs text-slate-500 font-medium">Intercorrência / Alerta</div>
+                <div className="text-sm font-bold text-slate-900">{selectedAlert.alertType}</div>
+                <div className="text-xs text-slate-600">Paciente: {selectedAlert.patientName}</div>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="actStatus">Status de Fechamento *</Label>
+                <select
+                  id="actStatus"
+                  className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 py-1 text-xs shadow-xs focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  value={actionStatus}
+                  onChange={(e) => setActionStatus(e.target.value as any)}
+                >
+                  <option value="RESOLVIDO">RESOLVIDO (Conduta executada e paciente estabilizado)</option>
+                  <option value="RECONHECIDO">RECONHECIDO (Em acompanhamento assistencial)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="actNotes">Descrição Detalhada da Conduta Adotada *</Label>
+                <Textarea
+                  id="actNotes"
+                  required
+                  rows={3}
+                  value={actionNotes}
+                  onChange={(e) => setActionNotes(e.target.value)}
+                  placeholder="Ex: Administrado anti-hipertensivo prescrito, realizada reavaliação de sinais vitais em 30 minutos com normalização dos parâmetros hemodinâmicos."
+                  className="text-xs"
+                />
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsActionModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" className="gap-2 bg-teal-600 hover:bg-teal-700 text-white">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Salvar & Auditar Conduta
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
