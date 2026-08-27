@@ -1377,10 +1377,10 @@ class HomeCareStore {
       .sort((a, b) => new Date(b.eventTimestamp).getTime() - new Date(a.eventTimestamp).getTime());
   }
 
-  public canAccessPatient(patientId: string): boolean {
+  public canAccessPatient(patientId: string): { authorized: boolean; reason?: string } {
     const patient = this.getPatientById(patientId);
-    if (!patient) return false;
-    const auth = authorizePatientAccess({
+    if (!patient) return { authorized: false, reason: "Paciente não encontrado." };
+    return authorizePatientAccess({
       userRole: this.currentUser.role,
       userStatus: this.currentUser.status,
       userOrgId: this.currentUser.organizationId,
@@ -1392,7 +1392,6 @@ class HomeCareStore {
       patientId: patient.id!,
       activeAssignments: this.assignments,
     });
-    return auth.authorized;
   }
 }
 

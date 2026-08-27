@@ -43,7 +43,7 @@ export default function PatientDetailPage() {
     if (p) {
       setPatient(p);
       const access = store.canAccessPatient(patientId);
-      setCanAccessPep(access);
+      setCanAccessPep(access.authorized);
     }
     setCurrentUser(store.currentUser);
   }, [patientId]);

@@ -142,17 +142,7 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
   }, [patientId]);
 
   // Validação Anti-IDOR
-  const assignments = store.getAssignments();
-  const authCheck = authorizePatientAccess({
-    userRole: currentUser.role,
-    userId: currentUser.id,
-    patientId: patientId,
-    activeAssignments: assignments.map((a) => ({
-      professionalUserId: a.professionalId,
-      patientId: a.patientId,
-      isActive: a.isActive,
-    })),
-  });
+  const authCheck = store.canAccessPatient(patientId);
 
   if (!patient) {
     return (
