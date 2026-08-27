@@ -37,3 +37,6 @@ next-env.d.ts
 # prisma local sqlite
 /prisma/*.db
 /prisma/*.db-journal
+
+# homecare code index
+.homecare-index/

@@ -1,0 +1,60 @@
+project:
+  name: HomeCare
+  root: .
+
+index:
+  path: .homecare-index/index.db
+  log_path: .homecare-index/logs/index.log
+
+embedding:
+  provider: ollama # ollama or local
+  model: nomic-embed-text
+  endpoint: http://localhost:11434/api/embeddings
+  dimension: 768
+  batch_size: 32
+  fallback_to_local: true
+
+search:
+  vector_weight: 0.55
+  fts_weight: 0.35
+  metadata_weight: 0.10
+  top_k: 10
+
+scanner:
+  include:
+    - src
+    - supabase
+    - tests
+    - docs
+    - AGENTS.md
+    - README.md
+    - package.json
+
+  exclude:
+    - node_modules
+    - dist
+    - build
+    - coverage
+    - .git
+    - .cache
+    - .next
+    - .homecare-index
+    - .vercel
+    - "*.db"
+    - "*.db-journal"
+    - "*.pem"
+    - "*.key"
+    - "*.env"
+    - "*.env.*"
+
+  extensions:
+    - .ts
+    - .tsx
+    - .js
+    - .jsx
+    - .sql
+    - .md
+    - .json
+    - .yaml
+    - .yml
+    - .prisma
