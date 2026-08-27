@@ -320,6 +320,80 @@ const INITIAL_PATIENTS: Patient[] = [
       },
     ],
   },
+  {
+    id: "pat_maria",
+    organizationId: "org_curahome",
+    unitId: "unit_ilheus",
+    fullName: "Maria Francisca dos Santos",
+    motherName: "Ana Clara dos Santos",
+    birthDate: new Date("1950-08-22"),
+    cpf: "222.333.444-55",
+    gender: "FEMININO",
+    addressStreet: "Rua das Acácias",
+    addressNumber: "85",
+    addressNeighborhood: "Malhado",
+    addressCity: "Ilhéus",
+    addressState: "BA",
+    addressZip: "45651-100",
+    allergies: ["Sulfa"],
+    status: "ATIVO",
+    nationality: "Brasileira",
+    raceColor: "PARDA",
+    maritalStatus: "VIUVO",
+    createdAt: new Date("2026-01-15"),
+    updatedAt: new Date("2026-01-15"),
+    addresses: [
+      {
+        id: "addr_3",
+        addressType: "RESIDENTIAL",
+        street: "Rua das Acácias",
+        number: "85",
+        neighborhood: "Malhado",
+        city: "Ilhéus",
+        state: "BA",
+        postalCode: "45651-100",
+        isPrimary: true,
+        validFrom: new Date("2026-01-15"),
+      },
+    ],
+  },
+  {
+    id: "pat_joao",
+    organizationId: "org_curahome",
+    unitId: "unit_itabuna",
+    fullName: "João Batista Ribeiro",
+    motherName: "Francisca Ribeiro",
+    birthDate: new Date("1958-11-04"),
+    cpf: "333.444.555-66",
+    gender: "MASCULINO",
+    addressStreet: "Avenida Juracy Magalhães",
+    addressNumber: "1020",
+    addressNeighborhood: "Centro",
+    addressCity: "Itabuna",
+    addressState: "BA",
+    addressZip: "45600-000",
+    allergies: [],
+    status: "ATIVO",
+    nationality: "Brasileira",
+    raceColor: "BRANCA",
+    maritalStatus: "CASADO",
+    createdAt: new Date("2026-02-01"),
+    updatedAt: new Date("2026-02-01"),
+    addresses: [
+      {
+        id: "addr_4",
+        addressType: "RESIDENTIAL",
+        street: "Avenida Juracy Magalhães",
+        number: "1020",
+        neighborhood: "Centro",
+        city: "Itabuna",
+        state: "BA",
+        postalCode: "45600-000",
+        isPrimary: true,
+        validFrom: new Date("2026-02-01"),
+      },
+    ],
+  },
 ];
 
 const INITIAL_EPISODES: CareEpisode[] = [
@@ -331,6 +405,30 @@ const INITIAL_EPISODES: CareEpisode[] = [
     careLocationId: "addr_2",
     careType: "HOME_CARE_24H",
     admissionDate: new Date("2026-02-10T08:00:00Z"),
+    doctorInChargeId: "prof_roberta",
+    nurseInChargeId: "prof_luciana",
+    status: "ATIVO",
+  },
+  {
+    id: "ep_maria",
+    organizationId: "org_curahome",
+    patientId: "pat_maria",
+    unitId: "unit_ilheus",
+    careLocationId: "addr_3",
+    careType: "HOME_CARE_12H",
+    admissionDate: new Date("2026-02-15T08:00:00Z"),
+    doctorInChargeId: "prof_roberta",
+    nurseInChargeId: "prof_luciana",
+    status: "ATIVO",
+  },
+  {
+    id: "ep_joao",
+    organizationId: "org_curahome",
+    patientId: "pat_joao",
+    unitId: "unit_itabuna",
+    careLocationId: "addr_4",
+    careType: "VISITAS_PONTUAIS",
+    admissionDate: new Date("2026-02-20T08:00:00Z"),
     doctorInChargeId: "prof_roberta",
     nurseInChargeId: "prof_luciana",
     status: "ATIVO",
@@ -678,14 +776,71 @@ class HomeCareStore {
   };
 
   constructor() {
+    this.loadFromStorage();
     this.audit("AUTH_LOGIN", "profiles", this.currentUser.id, null, {
       message: "Sessão iniciada na plataforma HomeCare",
     });
   }
 
+  private saveToStorage() {
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        const state = {
+          patients: this.patients,
+          episodes: this.episodes,
+          assignments: this.assignments,
+          triages: this.triages,
+          carePlans: this.carePlans,
+          pads: this.pads,
+          shifts: this.shifts,
+          evolutions: this.evolutions,
+          vitals: this.vitals,
+          prescriptions: this.prescriptions,
+          procedures: this.procedures,
+          exams: this.exams,
+          events: this.events,
+          auditLogs: this.auditLogs,
+          currentUser: this.currentUser,
+        };
+        localStorage.setItem("homecare_store_v1", JSON.stringify(state));
+      } catch (e) {
+        console.warn("Could not save store to localStorage", e);
+      }
+    }
+  }
+
+  private loadFromStorage() {
+    if (typeof window !== "undefined" && window.localStorage) {
+      try {
+        const raw = localStorage.getItem("homecare_store_v1");
+        if (raw) {
+          const state = JSON.parse(raw);
+          if (state.patients?.length) this.patients = state.patients;
+          if (state.episodes?.length) this.episodes = state.episodes;
+          if (state.assignments?.length) this.assignments = state.assignments;
+          if (state.triages?.length) this.triages = state.triages;
+          if (state.carePlans?.length) this.carePlans = state.carePlans;
+          if (state.pads?.length) this.pads = state.pads;
+          if (state.shifts?.length) this.shifts = state.shifts;
+          if (state.evolutions?.length) this.evolutions = state.evolutions;
+          if (state.vitals?.length) this.vitals = state.vitals;
+          if (state.prescriptions?.length) this.prescriptions = state.prescriptions;
+          if (state.procedures?.length) this.procedures = state.procedures;
+          if (state.exams?.length) this.exams = state.exams;
+          if (state.events?.length) this.events = state.events;
+          if (state.auditLogs?.length) this.auditLogs = state.auditLogs;
+          if (state.currentUser) this.currentUser = state.currentUser;
+        }
+      } catch (e) {
+        console.warn("Could not load store from localStorage", e);
+      }
+    }
+  }
+
   public setCurrentUser(user: CurrentUser) {
     this.currentUser = user;
     this.audit("AUTH_LOGIN", "profiles", user.id, null, { role: user.role, org: user.organizationId });
+    this.saveToStorage();
   }
 
   // --- AUDITORIA ---
@@ -709,6 +864,7 @@ class HomeCareStore {
       previousState,
     });
     this.auditLogs.unshift(entry);
+    this.saveToStorage();
   }
 
   public getAuditLogs(): AuditLog[] {
@@ -858,33 +1014,9 @@ class HomeCareStore {
   }
 
   public createAssignment(data: Omit<PatientProfessionalAssignment, "id">): PatientProfessionalAssignment {
-    let epId = data.episodeId;
-    if (!epId || epId === "") {
-      const existingEp = this.getEpisodeByPatientId(data.patientId);
-      if (existingEp) {
-        epId = existingEp.id;
-      } else {
-        const patient = this.getPatientById(data.patientId);
-        const newEp: CareEpisode = {
-          id: `ep_${Date.now()}`,
-          organizationId: this.currentUser.organizationId,
-          patientId: data.patientId,
-          unitId: patient?.unitId || "unit_ilheus",
-          careType: "HOME_CARE_12H",
-          admissionDate: new Date(),
-          doctorInChargeId: "prof_roberta",
-          status: "ATIVO",
-        };
-        this.episodes.push(newEp);
-        epId = newEp.id;
-      }
-    }
-
     const newAssign: PatientProfessionalAssignment = {
       ...data,
-      episodeId: epId,
       id: `assign_${Date.now()}`,
-      isActive: true,
     };
     this.assignments.push(newAssign);
     this.audit("SHIFT_ASSIGN", "patient_professional_assignments", newAssign.id, data.patientId, newAssign);

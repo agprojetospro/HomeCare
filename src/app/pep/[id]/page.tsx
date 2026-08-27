@@ -145,15 +145,13 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
   const assignments = store.getAssignments();
   const authCheck = authorizePatientAccess({
     userRole: currentUser.role,
-    userStatus: currentUser.status,
-    userOrgId: currentUser.organizationId,
-    patientOrgId: patient?.organizationId,
-    userUnitIds: currentUser.unitIds,
-    patientUnitId: patient?.unitId,
-    professionalId: currentUser.professionalId,
     userId: currentUser.id,
     patientId: patientId,
-    activeAssignments: assignments,
+    activeAssignments: assignments.map((a) => ({
+      professionalUserId: a.professionalId,
+      patientId: a.patientId,
+      isActive: a.isActive,
+    })),
   });
 
   if (!patient) {
