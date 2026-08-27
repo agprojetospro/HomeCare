@@ -126,9 +126,13 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
     examName: "",
   });
 
+  const [authCheck, setAuthCheck] = useState<{ authorized: boolean; reason?: string }>({ authorized: true });
+
   useEffect(() => {
+    store.initClient();
     const p = store.getPatientById(patientId);
     setPatient(p);
+    setAuthCheck(store.canAccessPatient(patientId));
     setEpisode(store.getEpisodeByPatientId(patientId));
     setTriage(store.getTriages(patientId)[0]);
     setCarePlans(store.getCarePlans(patientId));
@@ -140,9 +144,6 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
     setTimeline(store.getClinicalTimeline(patientId));
     setCurrentUser(store.currentUser);
   }, [patientId]);
-
-  // Validação Anti-IDOR
-  const authCheck = store.canAccessPatient(patientId);
 
   if (!patient) {
     return (

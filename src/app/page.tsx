@@ -28,6 +28,7 @@ export default function DashboardPage() {
   const [currentUser, setCurrentUser] = useState(store.currentUser);
 
   useEffect(() => {
+    store.initClient();
     setPatients(store.getPatients());
     setMyPatients(store.getMyPatients());
     setShifts(store.getShifts());

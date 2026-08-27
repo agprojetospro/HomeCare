@@ -39,6 +39,7 @@ export default function PatientDetailPage() {
   const [currentUser, setCurrentUser] = useState(store.currentUser);
 
   useEffect(() => {
+    store.initClient();
     const p = store.getPatientById(patientId);
     if (p) {
       setPatient(p);

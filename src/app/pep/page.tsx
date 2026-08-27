@@ -26,6 +26,7 @@ export default function MyPatientsPage() {
   const [currentUser] = useState(store.currentUser);
 
   useEffect(() => {
+    store.initClient();
     setMyPatients(store.getMyPatients());
   }, []);
 

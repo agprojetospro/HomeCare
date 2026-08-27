@@ -92,7 +92,7 @@ export default function AuditPage() {
             <TableBody>
               {filtered.map((log, idx) => (
                 <TableRow key={idx}>
-                  <TableCell className="text-xs font-mono text-slate-600 whitespace-nowrap">
+                  <TableCell suppressHydrationWarning className="text-xs font-mono text-slate-600 whitespace-nowrap">
                     {formatDateTime(log.createdAt)}
                   </TableCell>
                   <TableCell>

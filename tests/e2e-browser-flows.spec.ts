@@ -22,11 +22,17 @@ test.describe("HomeCare E2E Browser Flows & Zero-Console-Error Validation", () =
     expect(consoleErrors).toHaveLength(0);
   });
 
-  test("3. Deve vincular um paciente em /escalas e liberar o PEP imediatamente", async ({ page }) => {
+  test("3. Deve acessar o PEP da Dona Maria com vínculo ativo e permitir novas atribuições em /escalas", async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on("pageerror", (err) => consoleErrors.push(err.message));
 
-    // Acessar Escalas
+    // Acessar o PEP da Maria Francisca (já vinculada)
+    await page.goto("/pep/pat_maria");
+    await expect(page.locator("text=Maria Francisca dos Santos")).toBeVisible();
+    await expect(page.locator("text=Aferir Sinais")).toBeVisible();
+    await expect(page.locator("text=Acesso Restrito ao Prontuário")).not.toBeVisible();
+
+    // Acessar Escalas para criar novo vínculo
     await page.goto("/escalas");
     await expect(page.locator("text=Escalas, Plantões & Vínculos Assistenciais")).toBeVisible();
 
@@ -34,15 +40,18 @@ test.describe("HomeCare E2E Browser Flows & Zero-Console-Error Validation", () =
     await page.click("button:has-text('Vincular Paciente ↔ Profissional')");
     await expect(page.locator("text=Atribuição Assistencial (Vínculo)")).toBeVisible();
 
-    // Selecionar Maria Francisca e Confirmar
-    await page.selectOption("#asPat", "pat_maria");
+    // Selecionar João Batista e Dra. Roberta e Confirmar
+    await page.selectOption("#asPat", "pat_joao");
+    await page.selectOption("#asProf", "prof_roberta");
     await page.click("button:has-text('Confirmar Vínculo')");
+    await expect(page.locator("text=Atribuição Assistencial (Vínculo)")).not.toBeVisible();
 
-    // Acessar o PEP da Maria Francisca
-    await page.goto("/pep/pat_maria");
-    await expect(page.locator("text=Maria Francisca dos Santos")).toBeVisible();
+    // Acessar o PEP do Seu João
+    await page.goto("/pep/pat_joao");
+    await expect(page.locator("text=João Batista Ribeiro")).toBeVisible();
     await expect(page.locator("text=Aferir Sinais")).toBeVisible();
     await expect(page.locator("text=Acesso Restrito ao Prontuário")).not.toBeVisible();
+
     expect(consoleErrors).toHaveLength(0);
   });
 

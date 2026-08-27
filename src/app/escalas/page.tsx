@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { store } from "@/services/store.service";
 import { Shift, PatientProfessionalAssignment, ShiftSchema } from "@/domain/shift/shift.schema";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -40,12 +40,19 @@ import { formatDateTime, formatDate } from "@/lib/utils";
 export default function ShiftsPage() {
   const [shifts, setShifts] = useState<Shift[]>(store.getShifts());
   const [assignments, setAssignments] = useState<PatientProfessionalAssignment[]>(store.getAssignments());
-  const [patients] = useState(store.getPatients());
-  const [professionals] = useState(store.getProfessionals());
-
+  const [patients, setPatients] = useState(store.getPatients());
+  const [professionals, setProfessionals] = useState(store.getProfessionals());
   const [isShiftModalOpen, setIsShiftModalOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    store.initClient();
+    setShifts(store.getShifts());
+    setAssignments(store.getAssignments());
+    setPatients(store.getPatients());
+    setProfessionals(store.getProfessionals());
+  }, []);
 
   // Shift Form
   const [shiftForm, setShiftForm] = useState({
@@ -94,12 +101,11 @@ export default function ShiftsPage() {
   const handleCreateAssignment = (e: React.FormEvent) => {
     e.preventDefault();
     const episode = store.getEpisodeByPatientId(assignForm.patientId);
-    if (!episode) return;
 
     store.createAssignment({
-      episodeId: episode.id,
+      episodeId: episode?.id || "",
       patientId: assignForm.patientId,
-      professionalId: assignForm.professionalId,
+      professionalId: assignForm.professionalId || store.currentUser.professionalId || "prof_roberta",
       role: assignForm.role,
       startDate: new Date(assignForm.startDate),
       isActive: true,

@@ -463,6 +463,24 @@ const INITIAL_ASSIGNMENTS: PatientProfessionalAssignment[] = [
     startDate: new Date("2026-02-10T08:00:00Z"),
     isActive: true,
   },
+  {
+    id: "assign_4",
+    episodeId: "ep_maria",
+    patientId: "pat_maria",
+    professionalId: "prof_roberta",
+    role: "Médica Assistente Responsável",
+    startDate: new Date("2026-02-15T08:00:00Z"),
+    isActive: true,
+  },
+  {
+    id: "assign_5",
+    episodeId: "ep_joao",
+    patientId: "pat_joao",
+    professionalId: "prof_roberta",
+    role: "Médica Assistente Responsável",
+    startDate: new Date("2026-02-20T08:00:00Z"),
+    isActive: true,
+  },
 ];
 
 const INITIAL_TRIAGES: Triage[] = [
@@ -776,10 +794,13 @@ class HomeCareStore {
   };
 
   constructor() {
-    this.loadFromStorage();
     this.audit("AUTH_LOGIN", "profiles", this.currentUser.id, null, {
       message: "Sessão iniciada na plataforma HomeCare",
     });
+  }
+
+  public initClient() {
+    this.loadFromStorage();
   }
 
   private saveToStorage() {
@@ -1020,6 +1041,7 @@ class HomeCareStore {
     };
     this.assignments.push(newAssign);
     this.audit("SHIFT_ASSIGN", "patient_professional_assignments", newAssign.id, data.patientId, newAssign);
+    this.saveToStorage();
     return newAssign;
   }
 
