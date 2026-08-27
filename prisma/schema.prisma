@@ -1,0 +1,358 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  GESTOR_ESCALA
+  ENFERMEIRO
+  MEDICO
+  CUIDADOR
+  FAMILIAR
+  FINANCEIRO
+  COMERCIAL
+}
+
+enum LeadStatus {
+  NOVO
+  QUALIFICACAO
+  AVALIACAO_CLINICA
+  PROPOSTA_ENVIADA
+  GANHO
+  PERDIDO
+}
+
+enum LeadSource {
+  HOSPITAL
+  CONVENIO
+  PARTICULAR
+  GOOGLE
+  INDICACAO
+  OUTRO
+}
+
+enum CareType {
+  PLANTAO_12H
+  PLANTAO_24H
+  VISITAS_MULTIDISCIPLINARES
+  PROCEDIMENTOS_PONTUAIS
+  GERENCIAMENTO_CRONICOS
+}
+
+enum CareComplexity {
+  BAIXA
+  MEDIA
+  ALTA
+  VENTILACAO_MECANICA
+}
+
+enum PatientStatus {
+  ATIVO
+  ALTA
+  INTERNADO
+  SUSPENSO
+  OBITO
+}
+
+enum ProfessionalStatus {
+  ATIVO
+  INATIVO
+  FERIAS
+  PENDENTE_DOCS
+}
+
+enum ProfessionType {
+  CUIDADOR
+  TEC_ENFERMAGEM
+  ENFERMEIRO
+  FISIOTERAPEUTA
+  MEDICO
+  FONOAUDIOLOGO
+  NUTRICIONISTA
+  TERAPEUTA_OCUPACIONAL
+}
+
+enum ShiftType {
+  DIURNO_12H
+  NOTURNO_12H
+  INTEGRAL_24H
+  VISITA_PONTUAL
+}
+
+enum ShiftStatus {
+  AGENDADO
+  CONFIRMADO
+  EM_ANDAMENTO
+  CONCLUIDO
+  CANCELADO
+  FALTA
+  ATRASO
+}
+
+enum TransactionType {
+  RECEITA_CONVENIO
+  RECEITA_PARTICULAR
+  DESPESA_REPASSE
+  DESPESA_MATERIAIS
+  DESPESA_OPERACIONAL
+}
+
+enum TransactionStatus {
+  PENDENTE
+  PAGO
+  GLOSADO
+  CANCELADO
+}
+
+model User {
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  passwordHash  String
+  role          Role           @default(GESTOR_ESCALA)
+  avatarUrl     String?
+  phone         String?
+  active        Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  professional  Professional?
+  assignedLeads Lead[]         @relation("AssignedLeads")
+}
+
+model Lead {
+  id              String          @id @default(cuid())
+  patientName     String
+  contactName     String
+  contactPhone    String
+  contactEmail    String?
+  city            String
+  neighborhood    String?
+  source          LeadSource      @default(PARTICULAR)
+  status          LeadStatus      @default(NOVO)
+  careType        CareType        @default(PLANTAO_12H)
+  complexity      CareComplexity  @default(BAIXA)
+  estimatedValue  Float           @default(0)
+  notes           String?
+  assignedToId    String?
+  assignedTo      User?           @relation("AssignedLeads", fields: [assignedToId], references: [id])
+  convertedPatient Patient?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model Patient {
+  id                   String          @id @default(cuid())
+  fullName             String
+  cpf                  String?         @unique
+  birthDate            DateTime?
+  gender               String?
+  diagnosis            String?
+  careComplexity       CareComplexity  @default(BAIXA)
+  status               PatientStatus   @default(ATIVO)
+  
+  // Endereço e Geolocalização
+  address              String
+  number               String?
+  complement           String?
+  neighborhood         String
+  city                 String
+  state                String          @default("SP")
+  zipCode              String?
+  latitude             Float?
+  longitude            Float?
+
+  // Contato e Familiar Responsável
+  emergencyContactName String
+  emergencyContactPhone String
+  emergencyContactRel  String?
+  doctorInCharge       String?
+
+  leadId               String?         @unique
+  lead                 Lead?           @relation(fields: [leadId], references: [id])
+
+  shifts               Shift[]
+  evolutions           ClinicalEvolution[]
+  prescriptions        Prescription[]
+  supplies             HomeSupply[]
+  transactions         FinancialTransaction[]
+
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+}
+
+model Professional {
+  id            String              @id @default(cuid())
+  userId        String?             @unique
+  user          User?               @relation(fields: [userId], references: [id])
+  
+  fullName      String
+  cpf           String              @unique
+  councilNumber String?             // Ex: COREN-SP 123456, CRM 98765
+  profession    ProfessionType      @default(TEC_ENFERMAGEM)
+  phone         String
+  email         String?
+  address       String?
+  neighborhood  String?
+  city          String?
+  status        ProfessionalStatus  @default(ATIVO)
+  specialties   String?             // Ex: "Cuidados Paliativos, Traqueostomia, GTT"
+  
+  hourlyRate    Float               @default(0)
+  shift12hRate  Float               @default(0)
+  pixKey        String?
+
+  shifts        Shift[]
+  evolutions    ClinicalEvolution[]
+  medLogs       MedicationLog[]
+  transactions  FinancialTransaction[]
+
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+}
+
+model Shift {
+  id                    String              @id @default(cuid())
+  patientId             String
+  patient               Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  professionalId        String
+  professional          Professional        @relation(fields: [professionalId], references: [id])
+  
+  shiftType             ShiftType           @default(DIURNO_12H)
+  status                ShiftStatus         @default(AGENDADO)
+  
+  startDateTime         DateTime
+  endDateTime           DateTime
+  
+  // Registro de ponto e geolocalização Beira-Leito
+  checkInTime           DateTime?
+  checkInLat            Float?
+  checkInLng            Float?
+  checkOutTime          DateTime?
+  checkOutLat           Float?
+  checkOutLng           Float?
+
+  notes                 String?
+  valuePayable          Float               @default(0) // Valor a pagar ao profissional
+  valueReceivable       Float               @default(0) // Valor a faturar do cliente
+
+  evolutions            ClinicalEvolution[]
+  transactions          FinancialTransaction[]
+
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+}
+
+model ClinicalEvolution {
+  id               String        @id @default(cuid())
+  patientId        String
+  patient          Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  professionalId   String
+  professional     Professional  @relation(fields: [professionalId], references: [id])
+  shiftId          String?
+  shift            Shift?        @relation(fields: [shiftId], references: [id])
+
+  type             String        @default("ENFERMAGEM") // ENFERMAGEM, MEDICA, FISIOTERAPIA, SINAIS_VITAIS
+  content          String        // Descritivo da evolução
+
+  // Sinais Vitais
+  systolicBP       Int?          // Pressão Sistólica (mmHg)
+  diastolicBP      Int?          // Pressão Diastólica (mmHg)
+  heartRate        Int?          // Frequência Cardíaca (bpm)
+  temperature      Float?        // Temperatura (°C)
+  oxygenSaturation Int?          // SpO2 (%)
+  bloodGlucose     Int?          // Glicemia capilar (mg/dL)
+  painScore        Int?          // Escala de Dor (0 a 10)
+  
+  // Parâmetros Clínicos
+  dietAcceptance   String?       // BOA, PARCIAL, RECUSA, DIETA_ENTERAL
+  diuresis         String?       // PRESENTE, AUSENTE, EM_SVD
+  bowelMovement    String?       // PRESENTE, AUSENTE
+  intercurrences   String?       // Intercorrências registradas
+
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model Prescription {
+  id             String          @id @default(cuid())
+  patientId      String
+  patient        Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  medicationName String
+  dosage         String          // Ex: "500mg", "1 ampola", "20 gotas"
+  route          String          // ORAL, EV, IM, SC, GTT, INALATORIA, TOPICA
+  frequency      String          // "8/8h", "12/12h", "1x ao dia", "ACM"
+  instructions   String?
+  
+  startDate      DateTime        @default(now())
+  endDate        DateTime?
+  active         Boolean         @default(true)
+
+  logs           MedicationLog[]
+
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model MedicationLog {
+  id             String        @id @default(cuid())
+  prescriptionId String
+  prescription   Prescription  @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  professionalId String
+  professional   Professional  @relation(fields: [professionalId], references: [id])
+  
+  scheduledTime  DateTime
+  administeredAt DateTime      @default(now())
+  status         String        @default("ADMINISTRADO") // ADMINISTRADO, RECUSADO, EM_FALTA, SUSPENSO
+  notes          String?
+
+  createdAt      DateTime      @default(now())
+}
+
+model HomeSupply {
+  id             String        @id @default(cuid())
+  patientId      String
+  patient        Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  itemName       String
+  category       String        // EQUIPAMENTO, DESCARTAVEL, MEDICAMENTO, OXIGENOTERAPIA, CURATIVO
+  quantity       Int           @default(1)
+  unit           String        @default("UN")
+  serialNumber   String?
+  status         String        @default("EM_USO") // EM_USO, REPOR, DEVOLVIDO, MANUTENCAO
+
+  deliveryDate   DateTime      @default(now())
+  returnDate     DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model FinancialTransaction {
+  id             String            @id @default(cuid())
+  type           TransactionType   @default(RECEITA_PARTICULAR)
+  status         TransactionStatus @default(PENDENTE)
+  
+  amount         Float
+  dueDate        DateTime
+  paymentDate    DateTime?
+  description    String
+  
+  patientId      String?
+  patient        Patient?          @relation(fields: [patientId], references: [id])
+  professionalId String?
+  professional   Professional?     @relation(fields: [professionalId], references: [id])
+  shiftId        String?
+  shift          Shift?            @relation(fields: [shiftId], references: [id])
+
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
