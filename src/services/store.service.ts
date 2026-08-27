@@ -858,9 +858,33 @@ class HomeCareStore {
   }
 
   public createAssignment(data: Omit<PatientProfessionalAssignment, "id">): PatientProfessionalAssignment {
+    let epId = data.episodeId;
+    if (!epId || epId === "") {
+      const existingEp = this.getEpisodeByPatientId(data.patientId);
+      if (existingEp) {
+        epId = existingEp.id;
+      } else {
+        const patient = this.getPatientById(data.patientId);
+        const newEp: CareEpisode = {
+          id: `ep_${Date.now()}`,
+          organizationId: this.currentUser.organizationId,
+          patientId: data.patientId,
+          unitId: patient?.unitId || "unit_ilheus",
+          careType: "HOME_CARE_12H",
+          admissionDate: new Date(),
+          doctorInChargeId: "prof_roberta",
+          status: "ATIVO",
+        };
+        this.episodes.push(newEp);
+        epId = newEp.id;
+      }
+    }
+
     const newAssign: PatientProfessionalAssignment = {
       ...data,
+      episodeId: epId,
       id: `assign_${Date.now()}`,
+      isActive: true,
     };
     this.assignments.push(newAssign);
     this.audit("SHIFT_ASSIGN", "patient_professional_assignments", newAssign.id, data.patientId, newAssign);

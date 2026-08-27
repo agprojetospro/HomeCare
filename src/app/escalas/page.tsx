@@ -94,10 +94,9 @@ export default function ShiftsPage() {
   const handleCreateAssignment = (e: React.FormEvent) => {
     e.preventDefault();
     const episode = store.getEpisodeByPatientId(assignForm.patientId);
-    if (!episode) return;
 
     store.createAssignment({
-      episodeId: episode.id,
+      episodeId: episode?.id || "",
       patientId: assignForm.patientId,
       professionalId: assignForm.professionalId,
       role: assignForm.role,
