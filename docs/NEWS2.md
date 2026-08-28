@@ -56,3 +56,4 @@ A suíte `tests/news2-clinical-score.test.ts` valida:
 - [x] Detecção de `LOW_MEDIUM` para pontuação 3 isolada;
 - [x] Detecção de `HIGH` ($\ge 7$) com ação emergencial;
 - [x] Validação estrita do schema Zod com snapshot.
+

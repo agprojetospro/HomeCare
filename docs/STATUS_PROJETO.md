@@ -22,7 +22,7 @@
 | **P4: Plantões & Escalas com Médico Obrigatório** | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | **CONCLUÍDO** |
 | **P5: PEP Contextual, Sinais, Prescrição & Imutabilidade**| CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | **CONCLUÍDO** |
 | **ONDA 1: NEWS2 / Detecção Precoce de Deterioração & Alertas** | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | **CONCLUÍDO** |
-| **ONDA 2: Visitas, Check-in/Out & Geofencing GPS** | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | **PENDENTE** |
+| **ONDA 2: Visitas, Check-in/Out & Geofencing GPS** | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | **CONCLUÍDO** |
 | **ONDA 3: Gestão de Insumos, Oxigenoterapia & Curativos** | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | **PENDENTE** |
 | **ONDA 4: Portal do Familiar & Camada de Visibilidade LGPD** | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | **PENDENTE** |
 | **ONDA 5: Offline-First / PWA com Sincronização Idempotente** | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | **PENDENTE** |

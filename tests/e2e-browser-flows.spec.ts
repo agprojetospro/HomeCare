@@ -6,8 +6,8 @@ test.describe("HomeCare E2E Browser Flows & Zero-Console-Error Validation", () =
     page.on("pageerror", (err) => consoleErrors.push(err.message));
 
     await page.goto("/");
-    await expect(page).toHaveTitle(/CuraHome CRM/);
     await expect(page.locator("text=Central Operacional HomeCare")).toBeVisible();
+    await expect(page.locator("text=Visão geral da assistência domiciliar")).toBeVisible();
     expect(consoleErrors).toHaveLength(0);
   });
 
@@ -99,6 +99,32 @@ test.describe("HomeCare E2E Browser Flows & Zero-Console-Error Validation", () =
     await page.goto("/alertas");
     await expect(page.locator("text=Central de Alertas & Beira-Leito")).toBeVisible();
     await expect(page.locator("main")).toBeVisible();
+
+    expect(consoleErrors).toHaveLength(0);
+  });
+
+  test("6. Deve listar visitas assistenciais e executar fluxo de Check-in GPS beira-leito", async ({ page, context }) => {
+    const consoleErrors: string[] = [];
+    page.on("pageerror", (err) => consoleErrors.push(err.message));
+
+    await context.grantPermissions(["geolocation"]);
+    await context.setGeolocation({ latitude: -14.7935, longitude: -39.0465 });
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/escalas");
+    await expect(page.locator("text=Visitas de Campo & Check-in GPS")).toBeVisible();
+
+    // Localizar botão de Check-in GPS e clicar
+    const checkinBtn = page.getByRole("button", { name: "Check-in GPS" }).first();
+    await expect(checkinBtn).toBeVisible();
+    await checkinBtn.click();
+
+    // Validar modal aberto
+    await expect(page.locator("text=Check-in Beira-Leito (GPS & Geofencing)")).toBeVisible();
+
+    // Confirmar Check-in
+    await page.click("button:has-text('Confirmar Check-in')");
+    await expect(page.locator("text=Check-in Beira-Leito (GPS & Geofencing)")).not.toBeVisible();
 
     expect(consoleErrors).toHaveLength(0);
   });

@@ -16,6 +16,18 @@ import {
   evaluateVitalSignAlerts,
 } from "@/domain/pep/pep.schema";
 import { Pad, MultidisciplinaryVisit, EquipmentAndMaterial } from "@/domain/pad/pad.schema";
+import {
+  calculateNews2Score,
+  ClinicalScoreResult,
+  News2Inputs,
+} from "@/domain/clinical-score/news2.schema";
+import {
+  Visit,
+  VisitCheckin,
+  evaluateGeofence,
+  isValidVisitTransition,
+  VisitStatus,
+} from "@/domain/visit/visit.schema";
 import { UserRole, authorizePatientAccess } from "@/domain/security/rbac";
 import { AuditLog, createAuditEntry } from "@/domain/audit/audit";
 
@@ -756,6 +768,45 @@ const INITIAL_EVENTS: ClinicalEvent[] = [
   },
 ];
 
+const INITIAL_VISITS: Visit[] = [
+  {
+    id: "vis_antonio_1",
+    organizationId: "org_curahome",
+    unitId: "unit_ilheus",
+    patientId: "pat_antonio",
+    careEpisodeId: "ep_antonio",
+    professionalId: "prof_mariana",
+    shiftId: "shift_1",
+    padVisitId: "pad_vis_1",
+    scheduledStart: new Date(new Date().setHours(8, 0, 0, 0)),
+    scheduledEnd: new Date(new Date().setHours(12, 0, 0, 0)),
+    status: "SCHEDULED",
+    procedureSummary: "Higiene beira-leito, aspiração de secreção e administração de medicações prescritas",
+    notes: "Paciente estável. Monitorar SpO2 e pressão arterial.",
+    createdAt: new Date("2026-08-27T08:00:00Z"),
+    updatedAt: new Date("2026-08-27T08:00:00Z"),
+  },
+  {
+    id: "vis_maria_1",
+    organizationId: "org_curahome",
+    unitId: "unit_ilheus",
+    patientId: "pat_maria",
+    careEpisodeId: "ep_maria",
+    professionalId: "prof_roberta",
+    shiftId: "shift_1",
+    padVisitId: "pad_vis_2",
+    scheduledStart: new Date(new Date().setHours(14, 0, 0, 0)),
+    scheduledEnd: new Date(new Date().setHours(15, 30, 0, 0)),
+    status: "SCHEDULED",
+    procedureSummary: "Visita médica semanal para reavaliação de plano terapêutico e ajuste de broncodilatadores",
+    notes: "Reavaliar escore NEWS2 e queixa de dispneia.",
+    createdAt: new Date("2026-08-27T08:00:00Z"),
+    updatedAt: new Date("2026-08-27T08:00:00Z"),
+  },
+];
+
+const INITIAL_CHECKINS: VisitCheckin[] = [];
+
 // -------------------------------------------------------------
 // STORE SINGLETON
 // -------------------------------------------------------------
@@ -773,8 +824,11 @@ class HomeCareStore {
   private carePlans: CarePlan[] = INITIAL_CARE_PLANS;
   private pads: Pad[] = INITIAL_PADS;
   private shifts: Shift[] = INITIAL_SHIFTS;
+  private visits: Visit[] = INITIAL_VISITS;
+  private visitCheckins: VisitCheckin[] = INITIAL_CHECKINS;
   private evolutions: ClinicalEvolution[] = INITIAL_EVOLUTIONS;
   private vitals: VitalSigns[] = INITIAL_VITALS;
+  private clinicalScores: ClinicalScoreResult[] = [];
   private prescriptions: Prescription[] = INITIAL_PRESCRIPTIONS;
   private procedures: Procedure[] = INITIAL_PROCEDURES;
   private exams: Exam[] = INITIAL_EXAMS;
@@ -814,8 +868,11 @@ class HomeCareStore {
           carePlans: this.carePlans,
           pads: this.pads,
           shifts: this.shifts,
+          visits: this.visits,
+          visitCheckins: this.visitCheckins,
           evolutions: this.evolutions,
           vitals: this.vitals,
+          clinicalScores: this.clinicalScores,
           prescriptions: this.prescriptions,
           procedures: this.procedures,
           exams: this.exams,
@@ -843,8 +900,11 @@ class HomeCareStore {
           if (state.carePlans?.length) this.carePlans = state.carePlans;
           if (state.pads?.length) this.pads = state.pads;
           if (state.shifts?.length) this.shifts = state.shifts;
+          if (state.visits?.length) this.visits = state.visits;
+          if (state.visitCheckins?.length) this.visitCheckins = state.visitCheckins;
           if (state.evolutions?.length) this.evolutions = state.evolutions;
           if (state.vitals?.length) this.vitals = state.vitals;
+          if (state.clinicalScores?.length) this.clinicalScores = state.clinicalScores;
           if (state.prescriptions?.length) this.prescriptions = state.prescriptions;
           if (state.procedures?.length) this.procedures = state.procedures;
           if (state.exams?.length) this.exams = state.exams;
@@ -890,6 +950,17 @@ class HomeCareStore {
 
   public getAuditLogs(): AuditLog[] {
     return this.auditLogs;
+  }
+
+  public logAudit(
+    action: AuditLog["action"],
+    entityTable: string,
+    recordId?: string | null,
+    patientId?: string | null,
+    newState?: any,
+    previousState?: any
+  ) {
+    this.audit(action, entityTable, recordId, patientId, newState, previousState);
   }
 
   // --- ORGANIZAÇÕES & UNIDADES ---
@@ -1044,6 +1115,15 @@ class HomeCareStore {
     return newAssign;
   }
 
+  public assignProfessionalToPatient(data: Omit<PatientProfessionalAssignment, "id">): {
+    success: boolean;
+    assignment?: PatientProfessionalAssignment;
+    error?: string;
+  } {
+    const assignment = this.createAssignment(data);
+    return { success: true, assignment };
+  }
+
   // --- TRIAGEM & PLANOS ---
   public getTriages(patientId?: string): Triage[] {
     if (patientId) {
@@ -1168,6 +1248,163 @@ class HomeCareStore {
     return { success: true, shift: newShift };
   }
 
+  public allocateShift(data: Omit<Shift, "id">): { success: boolean; shift?: Shift; error?: string } {
+    return this.createShift(data);
+  }
+
+  // --- VISITAS OPERACIONAIS & CHECK-IN / CHECK-OUT BEIRA-LEITO ---
+  public getVisits(filters?: {
+    patientId?: string;
+    professionalId?: string;
+    status?: VisitStatus;
+    date?: Date;
+  }): Visit[] {
+    return this.visits
+      .filter((v) => {
+        if (filters?.patientId && v.patientId !== filters.patientId) return false;
+        if (filters?.professionalId && v.professionalId !== filters.professionalId) return false;
+        if (filters?.status && v.status !== filters.status) return false;
+        return true;
+      })
+      .sort((a, b) => new Date(a.scheduledStart).getTime() - new Date(b.scheduledStart).getTime());
+  }
+
+  public getVisitById(id: string): Visit | undefined {
+    return this.visits.find((v) => v.id === id);
+  }
+
+  public getCheckinByVisitId(visitId: string): VisitCheckin | undefined {
+    return this.visitCheckins.find((c) => c.visitId === visitId);
+  }
+
+  public createVisit(data: Omit<Visit, "id" | "createdAt" | "updatedAt">): Visit {
+    const newVisit: Visit = {
+      ...data,
+      id: `vis_${Date.now()}`,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.visits.push(newVisit);
+    this.audit("VISIT_CREATE", "visits", newVisit.id, newVisit.patientId, newVisit);
+    this.saveToStorage();
+    return newVisit;
+  }
+
+  public recordVisitCheckin(data: {
+    visitId: string;
+    professionalId: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    accuracy?: number | null;
+    overrideReason?: string | null;
+  }): { success: boolean; checkin?: VisitCheckin; error?: string } {
+    const visit = this.getVisitById(data.visitId);
+    if (!visit) return { success: false, error: "Visita não encontrada." };
+
+    if (!isValidVisitTransition(visit.status, "CHECKED_IN")) {
+      return { success: false, error: `Transição de status inválida de ${visit.status} para CHECKED_IN.` };
+    }
+
+    const patient = this.getPatientById(visit.patientId);
+    let patientLoc: { latitude: number; longitude: number } | null = null;
+
+    if (patient?.addresses?.length && patient.addresses[0].latitude && patient.addresses[0].longitude) {
+      patientLoc = { latitude: patient.addresses[0].latitude, longitude: patient.addresses[0].longitude };
+    } else if (patient?.id === "pat_antonio") {
+      patientLoc = { latitude: -14.7935, longitude: -39.0465 };
+    } else if (patient?.id === "pat_maria") {
+      patientLoc = { latitude: -14.7950, longitude: -39.0490 };
+    }
+
+    const profLoc = data.latitude != null && data.longitude != null ? {
+      latitude: data.latitude,
+      longitude: data.longitude,
+      accuracy: data.accuracy,
+    } : null;
+
+    const geofenceEval = evaluateGeofence(profLoc, patientLoc, 100);
+
+    if (geofenceEval.requiresOverride && !data.overrideReason?.trim()) {
+      return {
+        success: false,
+        error: `Check-in fora do perímetro esperado (${geofenceEval.distanceMetros != null ? Math.round(geofenceEval.distanceMetros) + 'm' : 'GPS indisponível'}). Justificativa assistencial é obrigatória.`,
+      };
+    }
+
+    const newCheckin: VisitCheckin = {
+      id: `chk_${Date.now()}`,
+      visitId: visit.id!,
+      professionalId: data.professionalId,
+      patientId: visit.patientId,
+      checkInAt: new Date(),
+      checkInLatitude: data.latitude,
+      checkInLongitude: data.longitude,
+      checkInAccuracy: data.accuracy,
+      distanceFromCareLocation: geofenceEval.distanceMetros,
+      geofenceResult: geofenceEval.geofenceResult,
+      overrideReason: geofenceEval.requiresOverride ? data.overrideReason : undefined,
+      overrideApprovedBy: geofenceEval.requiresOverride ? this.currentUser.id : undefined,
+      overrideApprovedAt: geofenceEval.requiresOverride ? new Date() : undefined,
+      createdAt: new Date(),
+    };
+
+    this.visitCheckins.unshift(newCheckin);
+
+    visit.status = "CHECKED_IN";
+    visit.actualStart = new Date();
+    visit.updatedAt = new Date();
+
+    if (geofenceEval.requiresOverride) {
+      this.audit("GEOFENCE_OVERRIDE", "visit_checkins", newCheckin.id, visit.patientId, {
+        distance: geofenceEval.distanceMetros,
+        reason: data.overrideReason,
+        result: geofenceEval.geofenceResult,
+      });
+    }
+
+    this.audit("VISIT_CHECK_IN", "visit_checkins", newCheckin.id, visit.patientId, newCheckin);
+    this.saveToStorage();
+
+    return { success: true, checkin: newCheckin };
+  }
+
+  public recordVisitCheckout(data: {
+    visitId: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    accuracy?: number | null;
+    notes?: string | null;
+  }): { success: boolean; visit?: Visit; error?: string } {
+    const visit = this.getVisitById(data.visitId);
+    if (!visit) return { success: false, error: "Visita não encontrada." };
+
+    if (!isValidVisitTransition(visit.status, "COMPLETED")) {
+      return { success: false, error: `Transição inválida de ${visit.status} para COMPLETED.` };
+    }
+
+    const checkin = this.getCheckinByVisitId(data.visitId);
+    if (checkin) {
+      checkin.checkOutAt = new Date();
+      checkin.checkOutLatitude = data.latitude;
+      checkin.checkOutLongitude = data.longitude;
+      checkin.checkOutAccuracy = data.accuracy;
+      if (data.notes) checkin.overrideReason = `${checkin.overrideReason || ''} [Checkout]: ${data.notes}`;
+    }
+
+    visit.status = "COMPLETED";
+    visit.actualEnd = new Date();
+    if (data.notes) visit.notes = `${visit.notes || ''} • Conclusão: ${data.notes}`;
+    visit.updatedAt = new Date();
+
+    this.audit("VISIT_CHECK_OUT", "visits", visit.id, visit.patientId, {
+      actualEnd: visit.actualEnd,
+      checkinId: checkin?.id,
+    });
+    this.saveToStorage();
+
+    return { success: true, visit };
+  }
+
   // --- PEP: EVOLUÇÕES CLÍNICAS & IMUTABILIDADE ---
   public getEvolutions(patientId: string): ClinicalEvolution[] {
     return this.evolutions
@@ -1262,6 +1499,21 @@ class HomeCareStore {
       .sort((a, b) => new Date(b.measuredAt).getTime() - new Date(a.measuredAt).getTime());
   }
 
+  public getNews2Scores(patientId: string): ClinicalScoreResult[] {
+    return this.clinicalScores
+      .filter((s) => s.patientId === patientId)
+      .sort((a, b) => new Date(b.calculatedAt).getTime() - new Date(a.calculatedAt).getTime());
+  }
+
+  public getLatestNews2(patientId: string): ClinicalScoreResult | undefined {
+    return this.getNews2Scores(patientId)[0];
+  }
+
+  public recordVitals(data: Omit<VitalSigns, "id">): {
+    vitals: VitalSigns;
+    alerts: any[];
+    news2: ClinicalScoreResult;
+  } {
     const newVitals: VitalSigns = {
       ...data,
       id: `vit_${Date.now()}`,
@@ -1269,6 +1521,44 @@ class HomeCareStore {
     this.vitals.push(newVitals);
 
     const alerts = evaluateVitalSignAlerts(newVitals);
+
+    const news2Inputs: News2Inputs = {
+      respiratoryRate: newVitals.respiratoryRate,
+      oxygenSaturation: newVitals.oxygenSaturation,
+      onSupplementalOxygen: false,
+      isHypercapnicRespiratoryFailure: false,
+      systolicBp: newVitals.systolicBp,
+      heartRate: newVitals.heartRate,
+      consciousnessLevel: "A",
+      temperature: newVitals.temperature,
+    };
+
+    const calculation = calculateNews2Score(news2Inputs);
+
+    const scoreResult: ClinicalScoreResult = {
+      id: `score_news2_${Date.now()}`,
+      scoreType: "NEWS2",
+      scoreVersion: "1.0",
+      patientId: data.patientId,
+      episodeId: data.episodeId,
+      vitalSignsId: newVitals.id,
+      professionalId: data.professionalId || this.currentUser.professionalId || "prof_mariana",
+      inputsSnapshot: news2Inputs,
+      subscores: calculation.subscores,
+      score: calculation.score,
+      riskLevel: calculation.riskLevel,
+      recommendedAction: calculation.recommendedAction,
+      calculatedAt: new Date(),
+    };
+
+    this.clinicalScores.unshift(scoreResult);
+
+    const maxSeverity =
+      calculation.riskLevel === "HIGH" || alerts.some((a) => a.severity === "CRITICO")
+        ? "CRITICO"
+        : calculation.riskLevel === "MEDIUM" || calculation.hasSingleParamMaxScore || alerts.length > 0
+        ? "ATENCAO"
+        : "NORMAL";
 
     this.events.unshift({
       id: `ev_${Date.now()}`,
@@ -1286,6 +1576,9 @@ class HomeCareStore {
 
     this.audit("NEWS2_CALCULATE", "clinical_score_results", scoreResult.id, data.patientId, scoreResult);
     this.audit("VITAL_SIGNS_RECORD", "vital_signs", newVitals.id, data.patientId, newVitals);
+    this.saveToStorage();
+
+    return { vitals: newVitals, alerts, news2: scoreResult };
   }
 
   // --- PEP: PRESCRIÇÕES ---

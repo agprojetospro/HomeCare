@@ -9,8 +9,10 @@ export interface SystemAlert {
   alertType: string;
   description: string;
   timestamp: string;
+  status: "EM_ATENDIMENTO" | "RECONHECIDO" | "CONDUTA_REGISTRADA" | "RESOLVIDO";
   careLocation: string;
   doctorInCharge: string;
+  notes?: string;
 }
 
 export class AlertsRepository {
@@ -57,9 +59,9 @@ export class AlertsRepository {
           alertType: "Escala & Plantão 12h Sincronizado",
           description: "Profissionais alocados em plantão ativo com registro de passagem de plantão validado.",
           timestamp: "Tempo Real",
-          status: "CONDUTA_REGISTRADA",
+          status: "RESOLVIDO",
           careLocation: `${firstPat.addressStreet}, ${firstPat.addressNumber} - ${firstPat.addressCity}`,
-          doctorInCharge: "Dra. Roberta Mendes (CRM-BA 189432)",
+          doctorInCharge: "Dra. Roberta Mendes (MEDICO)",
         });
       }
     }
