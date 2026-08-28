@@ -55,7 +55,7 @@ test.describe("HomeCare E2E Browser Flows & Zero-Console-Error Validation", () =
     expect(consoleErrors).toHaveLength(0);
   });
 
-  test("4. Deve navegar por todas as 14 telas principais sem falhas de renderização", async ({ page }) => {
+  test("4. Deve navegar por todas as 15 telas principais sem falhas de renderização", async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on("pageerror", (err) => consoleErrors.push(err.message));
 
@@ -66,6 +66,7 @@ test.describe("HomeCare E2E Browser Flows & Zero-Console-Error Validation", () =
       "/triagem",
       "/pad",
       "/escalas",
+      "/insumos",
       "/pep",
       "/pep/pat_antonio",
       "/profissionais",
@@ -128,4 +129,42 @@ test.describe("HomeCare E2E Browser Flows & Zero-Console-Error Validation", () =
 
     expect(consoleErrors).toHaveLength(0);
   });
+
+  test("7. Deve gerenciar insumos, monitorar autonomia de O2 e registrar avaliação de curativo NPUAP", async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on("pageerror", (err) => consoleErrors.push(err.message));
+
+    // 1. Acessar /insumos
+    await page.goto("/insumos");
+    await expect(page.locator("text=Gestão de Insumos, Oxigênio & Estoque Ledger")).toBeVisible();
+    await expect(page.locator("text=Catálogo & Níveis de Estoque")).toBeVisible();
+
+    // 2. Abrir modal de Nova Movimentação
+    await page.getByRole("button", { name: "Nova Movimentação" }).click();
+    await expect(page.locator("text=Lançamento no Livro-Razão de Estoque")).toBeVisible();
+    await page.getByRole("button", { name: "Registrar no Ledger" }).click();
+    await expect(page.locator("text=Lançamento no Livro-Razão de Estoque")).not.toBeVisible();
+
+    // 3. Acessar PEP do Seu Antônio e validar abas de Oxigênio e Curativos
+    await page.goto("/pep/pat_antonio");
+    await expect(page.locator("text=Antônio Carlos de Albuquerque")).toBeVisible();
+
+    // Clicar na aba Oxigênio
+    await page.getByRole("tab", { name: /Oxigênio/i }).click();
+    await expect(page.locator("text=Oxigenoterapia & Autonomia Residual")).toBeVisible();
+    await expect(page.locator("text=Pressão Mensurada no Cilindro")).toBeVisible();
+
+    // Clicar na aba Curativos
+    await page.getByRole("tab", { name: /Curativos/i }).click();
+    await expect(page.locator("text=Protocolo de Avaliação & Curativos de Lesões (NPUAP)")).toBeVisible();
+
+    // Abrir Modal de Nova Avaliação
+    await page.getByRole("button", { name: "Nova Avaliação de Ferida" }).click();
+    await expect(page.locator("text=Avaliação de Ferida & Protocolo de Curativo (NPUAP)")).toBeVisible();
+    await page.getByRole("button", { name: "Salvar Avaliação" }).click();
+    await expect(page.locator("text=Avaliação de Ferida & Protocolo de Curativo (NPUAP)")).not.toBeVisible();
+
+    expect(consoleErrors).toHaveLength(0);
+  });
 });
+

@@ -16,6 +16,7 @@ import {
   FileHeart,
   Receipt,
   User,
+  Boxes,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { store } from "@/services/store.service";
@@ -36,6 +37,7 @@ const navigation = [
     title: "Operação & Assistência",
     items: [
       { name: "Escalas & Plantões", href: "/escalas", icon: CalendarCheck },
+      { name: "Insumos & Oxigênio", href: "/insumos", icon: Boxes },
       { name: "PEP (Meus Pacientes)", href: "/pep", icon: Stethoscope },
       { name: "Central de Alertas", href: "/alertas", icon: HeartPulse },
     ],

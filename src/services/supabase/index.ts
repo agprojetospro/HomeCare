@@ -6,4 +6,4 @@ export * from "./billing.repository";
 export * from "./alerts.repository";
 export * from "./audit.repository";
 export * from "./visits.repository";
-
+export * from "./supplies.repository";

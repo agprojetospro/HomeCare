@@ -28,6 +28,15 @@ import {
   isValidVisitTransition,
   VisitStatus,
 } from "@/domain/visit/visit.schema";
+import {
+  SupplyItem,
+  InventoryLedgerEntry,
+  PatientOxygenTherapy,
+  WoundEvaluation,
+  calculateOxygenAutonomy,
+  evaluateWoundHealingProgress,
+  OxygenAutonomyCalculation,
+} from "@/domain/supplies/supplies.schema";
 import { UserRole, authorizePatientAccess } from "@/domain/security/rbac";
 import { AuditLog, createAuditEntry } from "@/domain/audit/audit";
 
@@ -807,6 +816,244 @@ const INITIAL_VISITS: Visit[] = [
 
 const INITIAL_CHECKINS: VisitCheckin[] = [];
 
+const INITIAL_SUPPLIES: SupplyItem[] = [
+  {
+    id: "sup_cateter_o2",
+    organizationId: "org_curahome",
+    unitId: "unit_ilheus",
+    code: "O2-CAT-001",
+    name: "Catéter Nasal de Oxigênio Adulto (Extensão 2m)",
+    category: "OXIGENOTERAPIA",
+    unitOfMeasure: "Unidade",
+    currentStock: 45,
+    minimumStock: 10,
+    reorderPoint: 20,
+    costPrice: 4.5,
+    active: true,
+  },
+  {
+    id: "sup_sonda_asp",
+    organizationId: "org_curahome",
+    unitId: "unit_ilheus",
+    code: "ASP-SON-012",
+    name: "Sonda de Aspiração Traqueal com Válvula nº 12",
+    category: "MATERIAL_PENSO",
+    unitOfMeasure: "Unidade",
+    currentStock: 60,
+    minimumStock: 15,
+    reorderPoint: 25,
+    costPrice: 2.8,
+    active: true,
+  },
+  {
+    id: "sup_hidrocoloide",
+    organizationId: "org_curahome",
+    unitId: "unit_ilheus",
+    code: "CUR-HID-10X10",
+    name: "Placa de Hidrocoloide Extra Fino 10x10cm",
+    category: "MATERIAL_PENSO",
+    unitOfMeasure: "Unidade",
+    currentStock: 30,
+    minimumStock: 8,
+    reorderPoint: 15,
+    costPrice: 18.5,
+    active: true,
+  },
+  {
+    id: "sup_espuma_prata",
+    organizationId: "org_curahome",
+    unitId: "unit_ilheus",
+    code: "CUR-ESP-SIL-AG",
+    name: "Curativo de Espuma Hidrocelular com Silicone e Prata 10x10cm",
+    category: "MATERIAL_PENSO",
+    unitOfMeasure: "Unidade",
+    currentStock: 25,
+    minimumStock: 5,
+    reorderPoint: 10,
+    costPrice: 42.0,
+    active: true,
+  },
+  {
+    id: "sup_dieta_enteral",
+    organizationId: "org_curahome",
+    unitId: "unit_ilheus",
+    code: "NUT-DIE-1000ML",
+    name: "Dieta Enteral Polimérica Hipercalórica e Normoproteica 1000ml",
+    category: "DIETA_ENTERAL",
+    unitOfMeasure: "Frasco",
+    currentStock: 40,
+    minimumStock: 12,
+    reorderPoint: 20,
+    costPrice: 38.0,
+    active: true,
+  },
+  {
+    id: "sup_luva_nitrilica",
+    organizationId: "org_curahome",
+    unitId: "unit_ilheus",
+    code: "EPI-LUV-NIT-M",
+    name: "Luvas de Procedimento Não Cirúrgico Nitrílica Tam M (Cx c/ 100)",
+    category: "EPI_DESCARTAVEL",
+    unitOfMeasure: "Caixa",
+    currentStock: 18,
+    minimumStock: 5,
+    reorderPoint: 8,
+    costPrice: 32.0,
+    active: true,
+  },
+  {
+    id: "sup_gaze_esteril",
+    organizationId: "org_curahome",
+    unitId: "unit_ilheus",
+    code: "MAT-GAZ-75X75",
+    name: "Compressa de Gaze Estéril 7.5x7.5cm 13 fios (Pct c/ 10)",
+    category: "MATERIAL_PENSO",
+    unitOfMeasure: "Pacote",
+    currentStock: 120,
+    minimumStock: 25,
+    reorderPoint: 40,
+    costPrice: 1.2,
+    active: true,
+  },
+];
+
+const INITIAL_LEDGER: InventoryLedgerEntry[] = [
+  {
+    id: "ledg_1",
+    organizationId: "org_curahome",
+    unitId: "unit_ilheus",
+    supplyItemId: "sup_espuma_prata",
+    movementType: "SAIDA_PACIENTE",
+    quantity: 1,
+    balanceAfter: 25,
+    batchNumber: "LOTE-AG-2026-04",
+    expirationDate: new Date("2028-06-30"),
+    patientId: "pat_antonio",
+    professionalId: "prof_mariana",
+    visitId: "vis_antonio_1",
+    reason: "Aplicação em LPP região sacral beira-leito",
+    createdAt: new Date("2026-08-27T08:30:00Z"),
+  },
+  {
+    id: "ledg_2",
+    organizationId: "org_curahome",
+    unitId: "unit_ilheus",
+    supplyItemId: "sup_sonda_asp",
+    movementType: "SAIDA_PACIENTE",
+    quantity: 2,
+    balanceAfter: 60,
+    batchNumber: "LOTE-ASP-2026",
+    expirationDate: new Date("2028-12-31"),
+    patientId: "pat_antonio",
+    professionalId: "prof_mariana",
+    visitId: "vis_antonio_1",
+    reason: "Aspiração traqueal matutina",
+    createdAt: new Date("2026-08-27T08:30:00Z"),
+  },
+];
+
+const INITIAL_OXYGEN_THERAPIES: PatientOxygenTherapy[] = [
+  {
+    id: "o2_antonio",
+    patientId: "pat_antonio",
+    episodeId: "ep_antonio",
+    sourceType: "CILINDRO_O2",
+    deliveryInterface: "TRAQUEOSTOMIA_MICRONEBULIZACAO",
+    flowRateLpm: 3.0,
+    usageHoursPerDay: 24,
+    cylinderType: "CILINDRO_J_50L",
+    cylinderFactorK: 5.0,
+    currentPressureBar: 80,
+    nominalPressureBar: 150,
+    lastPressureCheckAt: new Date(),
+    backupCylinderAvailable: true,
+    active: true,
+    notes: "Paciente traqueostomizado. Manter umidificação contínua e checagem de pressão a cada turno.",
+    updatedAt: new Date(),
+  },
+  {
+    id: "o2_maria",
+    patientId: "pat_maria",
+    episodeId: "ep_maria",
+    sourceType: "CONCENTRADOR_ESTACIONARIO",
+    deliveryInterface: "CATETER_NASAL",
+    flowRateLpm: 2.0,
+    usageHoursPerDay: 16,
+    concentratorFio2Percent: 93,
+    concentratorHourMeter: 1420,
+    cylinderType: "CILINDRO_E_10L",
+    cylinderFactorK: 1.0,
+    currentPressureBar: 140,
+    nominalPressureBar: 150,
+    backupCylinderAvailable: true,
+    active: true,
+    notes: "Uso noturno e durante esforço. Concentrador estacionário principal com cilindro E de backup.",
+    updatedAt: new Date(),
+  },
+];
+
+const INITIAL_WOUNDS: WoundEvaluation[] = [
+  {
+    id: "wnd_antonio_1",
+    patientId: "pat_antonio",
+    episodeId: "ep_antonio",
+    professionalId: "prof_mariana",
+    woundIdentifier: "Lesão por Pressão 1 — Região Sacral",
+    location: "SACRO",
+    stage: "ESTAGIO_3",
+    lengthCm: 4.5,
+    widthCm: 3.0,
+    depthCm: 0.8,
+    areaCm2: 13.5,
+    granulationPercent: 70,
+    sloughPercent: 20,
+    necrosisPercent: 0,
+    epithelializationPercent: 10,
+    exudateAmount: "MODERADO",
+    exudateType: "SEROSO",
+    odorPresent: false,
+    painScoreVisualScale: 2,
+    edgesCondition: "Íntegras e hidratadas",
+    prescribedCovering: "ESPUMA_DE_POLIURETANO_SILICONE",
+    secondaryCovering: "Película protetora sem ardor",
+    cleaningSolution: "Soro Fisiológico 0,9% em jatos mornos",
+    dressingChangeFrequencyHours: 48,
+    healingEvolutionStatus: "MELHORA",
+    clinicalNotes: "Lesão com bom leito de granulação (70%). Redução do esfacelo após debridamento autolítico com hidrogel prévio.",
+    evaluatedAt: new Date("2026-08-27T09:00:00Z"),
+    createdAt: new Date("2026-08-27T09:00:00Z"),
+  },
+  {
+    id: "wnd_antonio_0",
+    patientId: "pat_antonio",
+    episodeId: "ep_antonio",
+    professionalId: "prof_mariana",
+    woundIdentifier: "Lesão por Pressão 1 — Região Sacral",
+    location: "SACRO",
+    stage: "ESTAGIO_3",
+    lengthCm: 5.5,
+    widthCm: 4.0,
+    depthCm: 1.2,
+    areaCm2: 22.0,
+    granulationPercent: 40,
+    sloughPercent: 50,
+    necrosisPercent: 10,
+    epithelializationPercent: 0,
+    exudateAmount: "ABUNDANTE",
+    exudateType: "SEROSANGUINOLENTO",
+    odorPresent: false,
+    painScoreVisualScale: 4,
+    edgesCondition: "Maceradas",
+    prescribedCovering: "ALGINATO_DE_CALCIO",
+    cleaningSolution: "Soro Fisiológico 0,9%",
+    dressingChangeFrequencyHours: 24,
+    healingEvolutionStatus: "ESTAVEL",
+    clinicalNotes: "Avaliação inicial da admissão domiciliar.",
+    evaluatedAt: new Date("2026-08-15T10:00:00Z"),
+    createdAt: new Date("2026-08-15T10:00:00Z"),
+  },
+];
+
 // -------------------------------------------------------------
 // STORE SINGLETON
 // -------------------------------------------------------------
@@ -826,6 +1073,10 @@ class HomeCareStore {
   private shifts: Shift[] = INITIAL_SHIFTS;
   private visits: Visit[] = INITIAL_VISITS;
   private visitCheckins: VisitCheckin[] = INITIAL_CHECKINS;
+  private supplies: SupplyItem[] = INITIAL_SUPPLIES;
+  private inventoryLedger: InventoryLedgerEntry[] = INITIAL_LEDGER;
+  private oxygenTherapies: PatientOxygenTherapy[] = INITIAL_OXYGEN_THERAPIES;
+  private woundEvaluations: WoundEvaluation[] = INITIAL_WOUNDS;
   private evolutions: ClinicalEvolution[] = INITIAL_EVOLUTIONS;
   private vitals: VitalSigns[] = INITIAL_VITALS;
   private clinicalScores: ClinicalScoreResult[] = [];
@@ -870,6 +1121,10 @@ class HomeCareStore {
           shifts: this.shifts,
           visits: this.visits,
           visitCheckins: this.visitCheckins,
+          supplies: this.supplies,
+          inventoryLedger: this.inventoryLedger,
+          oxygenTherapies: this.oxygenTherapies,
+          woundEvaluations: this.woundEvaluations,
           evolutions: this.evolutions,
           vitals: this.vitals,
           clinicalScores: this.clinicalScores,
@@ -902,6 +1157,10 @@ class HomeCareStore {
           if (state.shifts?.length) this.shifts = state.shifts;
           if (state.visits?.length) this.visits = state.visits;
           if (state.visitCheckins?.length) this.visitCheckins = state.visitCheckins;
+          if (state.supplies?.length) this.supplies = state.supplies;
+          if (state.inventoryLedger?.length) this.inventoryLedger = state.inventoryLedger;
+          if (state.oxygenTherapies?.length) this.oxygenTherapies = state.oxygenTherapies;
+          if (state.woundEvaluations?.length) this.woundEvaluations = state.woundEvaluations;
           if (state.evolutions?.length) this.evolutions = state.evolutions;
           if (state.vitals?.length) this.vitals = state.vitals;
           if (state.clinicalScores?.length) this.clinicalScores = state.clinicalScores;
@@ -1723,6 +1982,239 @@ class HomeCareStore {
     return this.events
       .filter((ev) => ev.patientId === patientId)
       .sort((a, b) => new Date(b.eventTimestamp).getTime() - new Date(a.eventTimestamp).getTime());
+  }
+
+  // --- ONDA 3: GESTÃO DE INSUMOS & ESTOQUE LEDGER ---
+  public getSupplyCatalog(unitId?: string): SupplyItem[] {
+    const orgSupplies = this.supplies.filter(
+      (s) => s.organizationId === this.currentUser.organizationId && s.active
+    );
+    if (unitId) return orgSupplies.filter((s) => s.unitId === unitId);
+    return orgSupplies;
+  }
+
+  public getSupplyItemById(id: string): SupplyItem | undefined {
+    return this.supplies.find((s) => s.id === id);
+  }
+
+  public createSupplyItem(data: Omit<SupplyItem, "id" | "createdAt" | "updatedAt">): SupplyItem {
+    const newItem: SupplyItem = {
+      ...data,
+      id: `sup_${Date.now()}`,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.supplies.push(newItem);
+    this.audit("SUPPLY_ITEM_CREATE", "supplies_catalog", newItem.id, null, newItem);
+    this.saveToStorage();
+    return newItem;
+  }
+
+  public recordInventoryMovement(data: {
+    supplyItemId: string;
+    movementType: InventoryLedgerEntry["movementType"];
+    quantity: number;
+    patientId?: string | null;
+    visitId?: string | null;
+    batchNumber?: string | null;
+    expirationDate?: Date | null;
+    reason?: string | null;
+  }): { success: boolean; entry?: InventoryLedgerEntry; error?: string } {
+    const item = this.getSupplyItemById(data.supplyItemId);
+    if (!item) return { success: false, error: "Insumo não encontrado no catálogo." };
+
+    let newBalance = item.currentStock;
+    if (data.movementType === "ENTRADA" || data.movementType === "DEVOLUCAO") {
+      newBalance += data.quantity;
+    } else {
+      if (item.currentStock < data.quantity) {
+        return {
+          success: false,
+          error: `Saldo insuficiente em estoque. Disponível: ${item.currentStock} ${item.unitOfMeasure}(s), Solicitado: ${data.quantity}.`,
+        };
+      }
+      newBalance -= data.quantity;
+    }
+
+    item.currentStock = newBalance;
+    item.updatedAt = new Date();
+
+    const newEntry: InventoryLedgerEntry = {
+      id: `ledg_${Date.now()}`,
+      organizationId: item.organizationId,
+      unitId: item.unitId,
+      supplyItemId: item.id!,
+      movementType: data.movementType,
+      quantity: data.quantity,
+      balanceAfter: newBalance,
+      batchNumber: data.batchNumber,
+      expirationDate: data.expirationDate,
+      patientId: data.patientId,
+      professionalId: this.currentUser.professionalId || "prof_mariana",
+      visitId: data.visitId,
+      reason: data.reason,
+      createdAt: new Date(),
+    };
+
+    this.inventoryLedger.unshift(newEntry);
+
+    if (data.patientId) {
+      this.events.unshift({
+        id: `ev_${Date.now()}`,
+        episodeId: `ep_${data.patientId}`,
+        patientId: data.patientId,
+        eventType: "PROCEDIMENTO",
+        eventTitle: `Dispensação / Aplicação de Insumo (${item.name})`,
+        eventTimestamp: new Date(),
+        authorName: this.currentUser.name,
+        authorRole: this.currentUser.role,
+        summary: `Quantidade: ${data.quantity} ${item.unitOfMeasure} • Lote: ${data.batchNumber || "Padrão"} • Motivo: ${data.reason || "Uso beira-leito"}`,
+        severity: "NORMAL",
+        referenceId: newEntry.id,
+      });
+    }
+
+    this.audit("INVENTORY_MOVEMENT_RECORD", "inventory_ledger", newEntry.id, data.patientId, newEntry);
+    this.saveToStorage();
+
+    return { success: true, entry: newEntry };
+  }
+
+  public getInventoryLedger(patientId?: string): InventoryLedgerEntry[] {
+    if (patientId) {
+      return this.inventoryLedger.filter((l) => l.patientId === patientId);
+    }
+    return this.inventoryLedger;
+  }
+
+  // --- ONDA 3: MONITORAMENTO DE OXIGENOTERAPIA ---
+  public getPatientOxygenTherapy(patientId: string): PatientOxygenTherapy | undefined {
+    return this.oxygenTherapies.find((o) => o.patientId === patientId && o.active);
+  }
+
+  public updateOxygenTherapy(patientId: string, data: Partial<PatientOxygenTherapy>): PatientOxygenTherapy {
+    let therapy = this.getPatientOxygenTherapy(patientId);
+    if (!therapy) {
+      therapy = {
+        id: `o2_${patientId}`,
+        patientId,
+        episodeId: `ep_${patientId}`,
+        sourceType: data.sourceType || "CILINDRO_O2",
+        deliveryInterface: data.deliveryInterface || "CATETER_NASAL",
+        flowRateLpm: data.flowRateLpm || 2.0,
+        usageHoursPerDay: data.usageHoursPerDay || 24,
+        cylinderType: data.cylinderType || "CILINDRO_J_50L",
+        cylinderFactorK: data.cylinderFactorK || 5.0,
+        currentPressureBar: data.currentPressureBar || 150,
+        nominalPressureBar: 150,
+        lastPressureCheckAt: new Date(),
+        backupCylinderAvailable: true,
+        active: true,
+        updatedAt: new Date(),
+      };
+      this.oxygenTherapies.push(therapy);
+    } else {
+      Object.assign(therapy, data, { updatedAt: new Date() });
+    }
+
+    this.audit("OXYGEN_THERAPY_UPDATE", "patient_oxygen_therapy", therapy.id, patientId, therapy);
+    this.saveToStorage();
+    return therapy;
+  }
+
+  public recordOxygenPressureCheck(
+    patientId: string,
+    pressureBar: number
+  ): { therapy: PatientOxygenTherapy; calculation: OxygenAutonomyCalculation } {
+    let therapy = this.getPatientOxygenTherapy(patientId);
+    if (!therapy) {
+      therapy = this.updateOxygenTherapy(patientId, { currentPressureBar: pressureBar });
+    } else {
+      therapy.currentPressureBar = pressureBar;
+      therapy.lastPressureCheckAt = new Date();
+      therapy.updatedAt = new Date();
+    }
+
+    const calculation = calculateOxygenAutonomy(
+      pressureBar,
+      therapy.flowRateLpm,
+      therapy.cylinderFactorK || 1.0,
+      new Date()
+    );
+
+    this.events.unshift({
+      id: `ev_${Date.now()}`,
+      episodeId: therapy.episodeId,
+      patientId,
+      eventType: "SINAIS_VITAIS",
+      eventTitle: `Checagem de Oxigenoterapia — Pressão ${pressureBar} bar (${calculation.status})`,
+      eventTimestamp: new Date(),
+      authorName: this.currentUser.name,
+      authorRole: this.currentUser.role,
+      summary: `${calculation.alertMessage} • Fluxo: ${therapy.flowRateLpm} L/min via ${therapy.deliveryInterface.replace(/_/g, " ")}`,
+      severity: calculation.status === "CRITICO" ? "CRITICO" : calculation.status === "ATENCAO" ? "ATENCAO" : "NORMAL",
+      referenceId: therapy.id,
+    });
+
+    this.audit("OXYGEN_PRESSURE_CHECK", "patient_oxygen_therapy", therapy.id, patientId, {
+      pressureBar,
+      calculation,
+    });
+    this.saveToStorage();
+
+    return { therapy, calculation };
+  }
+
+  // --- ONDA 3: PROTOCOLO DE CURATIVOS & LESÕES POR PRESSÃO ---
+  public getWoundEvaluations(patientId: string): WoundEvaluation[] {
+    return this.woundEvaluations
+      .filter((w) => w.patientId === patientId)
+      .sort((a, b) => new Date(b.evaluatedAt).getTime() - new Date(a.evaluatedAt).getTime());
+  }
+
+  public recordWoundEvaluation(data: Omit<WoundEvaluation, "id" | "createdAt">): {
+    wound: WoundEvaluation;
+    progress: ReturnType<typeof evaluateWoundHealingProgress>;
+  } {
+    const previous = this.getWoundEvaluations(data.patientId).find(
+      (w) => w.woundIdentifier === data.woundIdentifier
+    );
+
+    const newWound: WoundEvaluation = {
+      ...data,
+      id: `wnd_${Date.now()}`,
+      areaCm2: Number((data.lengthCm * data.widthCm).toFixed(2)),
+      createdAt: new Date(),
+    };
+
+    const progress = evaluateWoundHealingProgress(previous, newWound);
+    newWound.healingEvolutionStatus =
+      progress.healingTrajectory === "REGRESSAO_POSITIVA"
+        ? "MELHORA"
+        : progress.healingTrajectory === "EXPANSAO_NEGATIVA"
+        ? "PIORA"
+        : "ESTAVEL";
+
+    this.woundEvaluations.unshift(newWound);
+
+    this.events.unshift({
+      id: `ev_${Date.now()}`,
+      episodeId: data.episodeId,
+      patientId: data.patientId,
+      eventType: "EVOLUCAO",
+      eventTitle: `Avaliação de Curativo Beira-Leito: ${data.woundIdentifier} (${data.stage.replace(/_/g, " ")})`,
+      eventTimestamp: new Date(),
+      authorName: this.currentUser.name,
+      authorRole: this.currentUser.role,
+      summary: `Área: ${newWound.areaCm2} cm² (${data.lengthCm}x${data.widthCm}cm) • Granulação: ${data.granulationPercent}% • Cobertura: ${data.prescribedCovering.replace(/_/g, " ")} | ${progress.summary}`,
+      severity: progress.healingTrajectory === "EXPANSAO_NEGATIVA" ? "ATENCAO" : "NORMAL",
+      referenceId: newWound.id,
+    });
+
+    this.audit("WOUND_EVALUATION_RECORD", "wound_evaluations", newWound.id, data.patientId, newWound);
+    this.saveToStorage();
+
+    return { wound: newWound, progress };
   }
 
   public canAccessPatient(patientId: string): { authorized: boolean; reason?: string } {

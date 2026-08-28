@@ -12,6 +12,12 @@ import {
   evaluateVitalSignAlerts,
 } from "@/domain/pep/pep.schema";
 import { ClinicalScoreResult } from "@/domain/clinical-score/news2.schema";
+import {
+  WoundEvaluation,
+  PatientOxygenTherapy,
+  calculateOxygenAutonomy,
+  evaluateWoundHealingProgress,
+} from "@/domain/supplies/supplies.schema";
 import { authorizePatientAccess } from "@/domain/security/rbac";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,6 +63,9 @@ import {
   Lock,
   ArrowLeft,
   AlertCircle,
+  Flame,
+  Bandage,
+  Gauge,
 } from "lucide-react";
 import Link from "next/link";
 import { formatDate, formatDateTime, formatTime } from "@/lib/utils";
@@ -80,6 +89,8 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
   const [procedures, setProcedures] = useState<Procedure[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
   const [timeline, setTimeline] = useState(store.getClinicalTimeline(patientId));
+  const [wounds, setWounds] = useState<WoundEvaluation[]>(store.getWoundEvaluations(patientId));
+  const [oxygenTherapy, setOxygenTherapy] = useState<PatientOxygenTherapy | undefined>(store.getPatientOxygenTherapy(patientId));
 
   // Modais
   const [isEvolutionModalOpen, setIsEvolutionModalOpen] = useState(false);
@@ -88,6 +99,9 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
   const [isProcedureModalOpen, setIsProcedureModalOpen] = useState(false);
   const [isExamModalOpen, setIsExamModalOpen] = useState(false);
   const [isMedAdminModalOpen, setIsMedAdminModalOpen] = useState(false);
+  const [isWoundModalOpen, setIsWoundModalOpen] = useState(false);
+  const [isOxygenPressureModalOpen, setIsOxygenPressureModalOpen] = useState(false);
+  const [newPressureInput, setNewPressureInput] = useState<number>(oxygenTherapy?.currentPressureBar || 100);
   const [selectedMedItem, setSelectedMedItem] = useState<{ prescId: string; item: any } | null>(null);
   const [medAdminForm, setMedAdminForm] = useState({
     status: "ADMINISTRADO" as "ADMINISTRADO" | "RECUSADO" | "SUSPENSO",
@@ -136,6 +150,29 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
     examName: "",
   });
 
+  const [woundForm, setWoundForm] = useState({
+    woundIdentifier: "Lesão por Pressão 1 — Região Sacral",
+    location: "SACRO" as const,
+    stage: "ESTAGIO_3" as const,
+    lengthCm: 4.0,
+    widthCm: 3.0,
+    depthCm: 0.6,
+    granulationPercent: 75,
+    sloughPercent: 15,
+    necrosisPercent: 0,
+    epithelializationPercent: 10,
+    exudateAmount: "MODERADO" as const,
+    exudateType: "SEROSO" as const,
+    odorPresent: false,
+    painScoreVisualScale: 2,
+    edgesCondition: "Íntegras",
+    prescribedCovering: "ESPUMA_DE_POLIURETANO_SILICONE" as const,
+    secondaryCovering: "Película protetora",
+    cleaningSolution: "Soro Fisiológico 0,9% em jatos mornos",
+    dressingChangeFrequencyHours: 48,
+    clinicalNotes: "Evolução favorável com aumento do tecido de granulação e redução das dimensões.",
+  });
+
   const [authCheck, setAuthCheck] = useState<{ authorized: boolean; reason?: string }>({ authorized: true });
 
   useEffect(() => {
@@ -152,6 +189,8 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
     setProcedures(store.getProcedures(patientId));
     setExams(store.getExams(patientId));
     setTimeline(store.getClinicalTimeline(patientId));
+    setWounds(store.getWoundEvaluations(patientId));
+    setOxygenTherapy(store.getPatientOxygenTherapy(patientId));
     setCurrentUser(store.currentUser);
   }, [patientId]);
 
@@ -337,6 +376,65 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
     });
   };
 
+  const handleRecordWoundEvaluation = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!patient) return;
+    setErrorMessage(null);
+
+    const totalTissue =
+      Number(woundForm.granulationPercent) +
+      Number(woundForm.sloughPercent) +
+      Number(woundForm.necrosisPercent) +
+      Number(woundForm.epithelializationPercent);
+
+    if (totalTissue > 100) {
+      setErrorMessage(`A soma dos tecidos (${totalTissue}%) não pode ultrapassar 100%.`);
+      return;
+    }
+
+    store.recordWoundEvaluation({
+      patientId: patient.id!,
+      episodeId: episode?.id || `ep_${patientId}`,
+      professionalId: currentUser.professionalId || "prof_mariana",
+      woundIdentifier: woundForm.woundIdentifier,
+      location: woundForm.location,
+      stage: woundForm.stage,
+      lengthCm: Number(woundForm.lengthCm),
+      widthCm: Number(woundForm.widthCm),
+      depthCm: Number(woundForm.depthCm),
+      granulationPercent: Number(woundForm.granulationPercent),
+      sloughPercent: Number(woundForm.sloughPercent),
+      necrosisPercent: Number(woundForm.necrosisPercent),
+      epithelializationPercent: Number(woundForm.epithelializationPercent),
+      exudateAmount: woundForm.exudateAmount,
+      exudateType: woundForm.exudateType,
+      odorPresent: woundForm.odorPresent,
+      painScoreVisualScale: Number(woundForm.painScoreVisualScale),
+      edgesCondition: woundForm.edgesCondition,
+      prescribedCovering: woundForm.prescribedCovering,
+      secondaryCovering: woundForm.secondaryCovering,
+      cleaningSolution: woundForm.cleaningSolution,
+      dressingChangeFrequencyHours: Number(woundForm.dressingChangeFrequencyHours),
+      healingEvolutionStatus: "ESTAVEL",
+      clinicalNotes: woundForm.clinicalNotes,
+      evaluatedAt: new Date(),
+    });
+
+    setWounds(store.getWoundEvaluations(patientId));
+    setTimeline(store.getClinicalTimeline(patientId));
+    setIsWoundModalOpen(false);
+  };
+
+  const handleRecordOxygenCheck = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!patient) return;
+
+    store.recordOxygenPressureCheck(patient.id!, Number(newPressureInput));
+    setOxygenTherapy(store.getPatientOxygenTherapy(patientId));
+    setTimeline(store.getClinicalTimeline(patientId));
+    setIsOxygenPressureModalOpen(false);
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* ------------------------------------------------------------- */}
@@ -458,6 +556,12 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
         <TabsList className="bg-white border border-slate-200 p-1 rounded-xl shadow-xs overflow-x-auto max-w-full justify-start">
           <TabsTrigger value="resumo" className="gap-1.5 text-xs">
             <Activity className="h-3.5 w-3.5" /> Resumo
+          </TabsTrigger>
+          <TabsTrigger value="oxigenio" className="gap-1.5 text-xs">
+            <Flame className="h-3.5 w-3.5 text-amber-500" /> Oxigênio (O₂)
+          </TabsTrigger>
+          <TabsTrigger value="curativos" className="gap-1.5 text-xs">
+            <Bandage className="h-3.5 w-3.5 text-teal-600" /> Curativos ({wounds.length})
           </TabsTrigger>
           <TabsTrigger value="evolucao" className="gap-1.5 text-xs">
             <FileText className="h-3.5 w-3.5" /> Evolução ({evolutions.length})
@@ -609,6 +713,217 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* ABA OXIGENOTERAPIA */}
+        <TabsContent value="oxigenio" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-800">Oxigenoterapia & Autonomia Residual</h3>
+              <p className="text-xs text-slate-500">Monitoramento beira-leito, pressão manométrica e cálculo de autonomia física</p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => setIsOxygenPressureModalOpen(true)}
+              className="gap-1.5 text-xs bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              <Gauge className="h-3.5 w-3.5" /> Aferir Pressão de O₂
+            </Button>
+          </div>
+
+          {oxygenTherapy ? (
+            (() => {
+              const calc = calculateOxygenAutonomy(
+                oxygenTherapy.currentPressureBar || 0,
+                oxygenTherapy.flowRateLpm,
+                oxygenTherapy.cylinderFactorK || 1.0,
+                new Date()
+              );
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <Card className="border-slate-200/80 shadow-xs md:col-span-2 space-y-4 p-5">
+                    <div className="flex items-center justify-between border-b pb-3">
+                      <div>
+                        <div className="text-xs text-slate-500 font-medium">Prescrição Terapêutica de O₂</div>
+                        <div className="text-lg font-bold text-slate-900 mt-0.5">
+                          {oxygenTherapy.flowRateLpm} L/min • {oxygenTherapy.deliveryInterface.replace(/_/g, " ")}
+                        </div>
+                      </div>
+                      <Badge variant={calc.status === "CRITICO" ? "destructive" : calc.status === "ATENCAO" ? "warning" : "success"}>
+                        {calc.status}
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 text-xs">
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span className="text-slate-400 block font-medium">Fonte de Suprimento</span>
+                        <span className="font-bold text-slate-900">{oxygenTherapy.sourceType.replace(/_/g, " ")}</span>
+                        {oxygenTherapy.cylinderType && (
+                          <span className="block text-slate-500 text-[11px] font-mono mt-0.5">
+                            {oxygenTherapy.cylinderType} (K={oxygenTherapy.cylinderFactorK})
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span className="text-slate-400 block font-medium">Horas de Uso / Dia</span>
+                        <span className="font-bold text-slate-900">{oxygenTherapy.usageHoursPerDay} horas / dia</span>
+                        <span className="block text-teal-700 text-[11px] mt-0.5">
+                          {oxygenTherapy.backupCylinderAvailable ? "Cilindro Reserva Disponível" : "Sem reserva"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-amber-50/60 rounded-xl border border-amber-200 space-y-2">
+                      <div className="flex items-center justify-between text-xs font-semibold text-amber-900">
+                        <span className="flex items-center gap-1.5">
+                          <Gauge className="h-4 w-4 text-amber-600" />
+                          Pressão Mensurada no Cilindro
+                        </span>
+                        <span className="font-mono text-sm">{oxygenTherapy.currentPressureBar || 0} / {oxygenTherapy.nominalPressureBar || 150} bar</span>
+                      </div>
+
+                      <div className="w-full bg-amber-200/60 h-2.5 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-500 ${
+                            (oxygenTherapy.currentPressureBar || 0) < 30 ? "bg-red-500" : (oxygenTherapy.currentPressureBar || 0) < 60 ? "bg-amber-500" : "bg-emerald-500"
+                          }`}
+                          style={{ width: `${Math.min(100, (((oxygenTherapy.currentPressureBar || 0) / (oxygenTherapy.nominalPressureBar || 150)) * 100))}%` }}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-amber-800 font-medium pt-1">
+                        <span>Autonomia Estimada: <strong>{calc.autonomyHours} horas</strong> ({calc.autonomyMinutes} min)</span>
+                        <span>{calc.totalUsableLiters}L utilizáveis</span>
+                      </div>
+                      <div className="text-[11px] text-amber-700 italic">{calc.alertMessage}</div>
+                    </div>
+
+                    {oxygenTherapy.notes && (
+                      <div className="text-xs text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-200/60">
+                        <strong>Conduta Assistencial:</strong> {oxygenTherapy.notes}
+                      </div>
+                    )}
+                  </Card>
+
+                  <Card className="border-slate-200/80 shadow-xs p-5 space-y-3">
+                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Diretrizes de Segurança</h4>
+                    <ul className="text-xs text-slate-600 space-y-2 list-disc pl-4">
+                      <li>Manter cilindro na vertical em suporte seguro, longe de fontes de calor.</li>
+                      <li>Aferir manômetro a cada visita ou troca de plantão.</li>
+                      <li>Programar recarga preventiva quando pressão atingir menos de 50 bar.</li>
+                      <li>Manter umidificador com água estéril no nível adequado.</li>
+                    </ul>
+                  </Card>
+                </div>
+              );
+            })()
+          ) : (
+            <Card className="border-slate-200 p-8 text-center text-slate-500">
+              <p className="text-xs">Paciente sem prescrição de oxigenoterapia ativa cadastrada.</p>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* ABA CURATIVOS & LESÕES POR PRESSÃO (NPUAP) */}
+        <TabsContent value="curativos" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-800">Protocolo de Avaliação & Curativos de Lesões (NPUAP)</h3>
+              <p className="text-xs text-slate-500">Classificação por estadiamento, dimensões, tecido do leito e conduta de cobertura</p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => setIsWoundModalOpen(true)}
+              className="gap-1.5 text-xs bg-teal-600 hover:bg-teal-700 text-white"
+            >
+              <PlusCircle className="h-3.5 w-3.5" /> Nova Avaliação de Ferida
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            {wounds.map((w, idx) => {
+              const prevWound = wounds[idx + 1];
+              const healing = evaluateWoundHealingProgress(prevWound, w);
+              const author = store.getProfessionalById(w.professionalId);
+              return (
+                <Card key={w.id} className="border-slate-200/80 shadow-xs">
+                  <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="teal" className="text-xs font-semibold">
+                          {w.woundIdentifier}
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs">
+                          {w.stage.replace(/_/g, " ")}
+                        </Badge>
+                        <span className="text-xs text-slate-500 font-mono">
+                          Local: {w.location.replace(/_/g, " ")}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={w.healingEvolutionStatus === "MELHORA" ? "success" : w.healingEvolutionStatus === "PIORA" ? "destructive" : "secondary"}
+                          className="text-[10px]"
+                        >
+                          {w.healingEvolutionStatus}
+                        </Badge>
+                        <span className="text-xs text-slate-400">{formatDateTime(w.evaluatedAt)}</span>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-5 space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span className="text-slate-400 block font-medium">Dimensões (CxLxP)</span>
+                        <span className="text-sm font-bold text-slate-900 mt-0.5 block">
+                          {w.lengthCm} x {w.widthCm} x {w.depthCm || 0} cm
+                        </span>
+                        <span className="text-[11px] text-teal-700 font-mono">Área: {w.areaCm2 || (w.lengthCm * w.widthCm).toFixed(2)} cm²</span>
+                      </div>
+
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span className="text-slate-400 block font-medium">Tecido no Leito</span>
+                        <div className="text-[11px] font-medium text-slate-800 mt-0.5 space-y-0.5">
+                          <div>Granulação: <strong className="text-emerald-700">{w.granulationPercent}%</strong></div>
+                          <div>Esfacelo: <strong className="text-amber-700">{w.sloughPercent}%</strong></div>
+                          {w.necrosisPercent > 0 && <div>Necrose: <strong className="text-red-700">{w.necrosisPercent}%</strong></div>}
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <span className="text-slate-400 block font-medium">Exsudato & Odor</span>
+                        <span className="font-bold text-slate-900 block mt-0.5">
+                          {w.exudateAmount} • {w.exudateType}
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          {w.odorPresent ? "Com odor fétido" : "Sem odor fétido"} • Dor: {w.painScoreVisualScale}/10
+                        </span>
+                      </div>
+
+                      <div className="p-3 bg-teal-50/50 rounded-xl border border-teal-100">
+                        <span className="text-teal-700 block font-medium">Cobertura Prescrita</span>
+                        <span className="font-bold text-slate-900 block mt-0.5">
+                          {w.prescribedCovering.replace(/_/g, " ")}
+                        </span>
+                        <span className="text-[11px] text-slate-600 block mt-0.5">
+                          Troca a cada {w.dressingChangeFrequencyHours}h
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 rounded-lg text-xs border border-slate-200/60 space-y-1">
+                      <div className="flex items-center justify-between text-slate-700">
+                        <span><strong>Evolução Comparativa:</strong> {healing.summary}</span>
+                        <span className="text-slate-400 font-mono">Avaliador: {author?.fullName || "Enf. Assistencial"}</span>
+                      </div>
+                      {w.clinicalNotes && <p className="text-slate-600 italic pt-1">{w.clinicalNotes}</p>}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </TabsContent>
 
         {/* 2. ABA EVOLUÇÃO CLÍNICA */}
@@ -1483,6 +1798,250 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Modal: Nova Avaliação de Curativo / Lesão por Pressão */}
+      <Dialog open={isWoundModalOpen} onOpenChange={setIsWoundModalOpen}>
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bandage className="h-5 w-5 text-teal-600" />
+              Avaliação de Ferida & Protocolo de Curativo (NPUAP)
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Registro beira-leito de dimensões, estadiamento, tecido do leito e conduta tópica.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleRecordWoundEvaluation} className="space-y-4">
+            {errorMessage && (
+              <div className="p-3 bg-red-50 text-red-700 text-xs rounded-lg border border-red-200">
+                {errorMessage}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Identificador da Lesão *</Label>
+                <Input
+                  required
+                  value={woundForm.woundIdentifier}
+                  onChange={(e) => setWoundForm({ ...woundForm, woundIdentifier: e.target.value })}
+                  className="text-xs"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Localização Anatômica *</Label>
+                <select
+                  className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 py-1 text-xs"
+                  value={woundForm.location}
+                  onChange={(e) => setWoundForm({ ...woundForm, location: e.target.value as any })}
+                >
+                  <option value="SACRO">Região Sacral</option>
+                  <option value="TROCANTER_DIREITO">Trocânter Direito</option>
+                  <option value="TROCANTER_ESQUERDO">Trocânter Esquerdo</option>
+                  <option value="CALCANEO_DIREITO">Calcâneo Direito</option>
+                  <option value="CALCANEO_ESQUERDO">Calcâneo Esquerdo</option>
+                  <option value="MALEOLO_LATERAL_DIREITO">Maléolo Direito</option>
+                  <option value="OCCIPITAL">Região Occipital</option>
+                  <option value="OUTRO">Outra Localização</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Estadiamento NPUAP / Tipo de Lesão *</Label>
+              <select
+                className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 py-1 text-xs"
+                value={woundForm.stage}
+                onChange={(e) => setWoundForm({ ...woundForm, stage: e.target.value as any })}
+              >
+                <option value="ESTAGIO_1">Estágio 1 (Eritema não branqueável em pele intacta)</option>
+                <option value="ESTAGIO_2">Estágio 2 (Perda parcial da pele / derme exposta)</option>
+                <option value="ESTAGIO_3">Estágio 3 (Perda total da espessura da pele / tecido adiposo)</option>
+                <option value="ESTAGIO_4">Estágio 4 (Perda total com exposição de osso/músculo)</option>
+                <option value="NAO_CLASSIFICAVEL">Não Classificável (Coberta por esfacelo/escara)</option>
+                <option value="LTP_TISSULAR_PROFUNDA">Lesão Tissular Profunda (LTP)</option>
+                <option value="FERIDA_CIRURGICA">Ferida Operatória / Cirúrgica</option>
+                <option value="ULCERA_VASCULAR_VENOSA">Úlcera Vascular Venosa</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Comprimento (cm) *</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  required
+                  value={woundForm.lengthCm}
+                  onChange={(e) => setWoundForm({ ...woundForm, lengthCm: Number(e.target.value) })}
+                  className="text-xs"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Largura (cm) *</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  required
+                  value={woundForm.widthCm}
+                  onChange={(e) => setWoundForm({ ...woundForm, widthCm: Number(e.target.value) })}
+                  className="text-xs"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Profundidade (cm)</Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={woundForm.depthCm}
+                  onChange={(e) => setWoundForm({ ...woundForm, depthCm: Number(e.target.value) })}
+                  className="text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+              <div className="text-xs font-semibold text-slate-800">Composição do Leito Tecidual (Soma máxima: 100%)</div>
+              <div className="grid grid-cols-4 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-emerald-700 font-bold">Granulação %</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={woundForm.granulationPercent}
+                    onChange={(e) => setWoundForm({ ...woundForm, granulationPercent: Number(e.target.value) })}
+                    className="text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-amber-700 font-bold">Esfacelo %</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={woundForm.sloughPercent}
+                    onChange={(e) => setWoundForm({ ...woundForm, sloughPercent: Number(e.target.value) })}
+                    className="text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-red-700 font-bold">Necrose %</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={woundForm.necrosisPercent}
+                    onChange={(e) => setWoundForm({ ...woundForm, necrosisPercent: Number(e.target.value) })}
+                    className="text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-teal-700 font-bold">Epitelização %</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={woundForm.epithelializationPercent}
+                    onChange={(e) => setWoundForm({ ...woundForm, epithelializationPercent: Number(e.target.value) })}
+                    className="text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Cobertura Primária Prescrita *</Label>
+                <select
+                  className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 py-1 text-xs"
+                  value={woundForm.prescribedCovering}
+                  onChange={(e) => setWoundForm({ ...woundForm, prescribedCovering: e.target.value as any })}
+                >
+                  <option value="ESPUMA_DE_POLIURETANO_SILICONE">Espuma com Silicone</option>
+                  <option value="PRATA_IONICA_ALGINATO">Prata Iônica com Alginato</option>
+                  <option value="HIDROCOLOIDE">Placa de Hidrocoloide</option>
+                  <option value="ALGINATO_DE_CALCIO">Alginato de Cálcio</option>
+                  <option value="HIDROGEL_COM_ALGINATO">Hidrogel com Alginato</option>
+                  <option value="COLAGENASE">Colagenase com Cloranfenicol</option>
+                  <option value="FILME_TRANSPARENTE">Filme Transparente</option>
+                  <option value="CURATIVO_SIMPLES_GAZE_SF09">Curativo Simples (Gaze + SF 0,9%)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Frequência de Troca (horas)</Label>
+                <Input
+                  type="number"
+                  min="6"
+                  max="168"
+                  value={woundForm.dressingChangeFrequencyHours}
+                  onChange={(e) => setWoundForm({ ...woundForm, dressingChangeFrequencyHours: Number(e.target.value) })}
+                  className="text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Observações Clínicas e Conduta</Label>
+              <Textarea
+                rows={2}
+                value={woundForm.clinicalNotes}
+                onChange={(e) => setWoundForm({ ...woundForm, clinicalNotes: e.target.value })}
+                className="text-xs"
+              />
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsWoundModalOpen(false)}>Cancelar</Button>
+              <Button type="submit" className="bg-teal-600 hover:bg-teal-700 text-white">Salvar Avaliação</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Aferir Pressão de Oxigênio */}
+      <Dialog open={isOxygenPressureModalOpen} onOpenChange={setIsOxygenPressureModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Gauge className="h-5 w-5 text-amber-600" />
+              Aferição de Pressão do Cilindro de O₂
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Recalcula em tempo real a autonomia em horas de oxigênio beira-leito.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleRecordOxygenCheck} className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Pressão Mensurada no Manômetro (bar) *</Label>
+              <Input
+                type="number"
+                min={0}
+                max={200}
+                required
+                value={newPressureInput}
+                onChange={(e) => setNewPressureInput(Number(e.target.value))}
+                className="text-sm font-bold text-slate-900"
+              />
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsOxygenPressureModalOpen(false)}>Cancelar</Button>
+              <Button type="submit" className="bg-amber-600 hover:bg-amber-700 text-white">Confirmar & Recalcular</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
