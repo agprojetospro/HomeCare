@@ -1799,37 +1799,78 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Nova Avaliação de Curativo / Lesão por Pressão */}
+      {/* Modal: Aferir Pressão de O2 */}
+      <Dialog open={isOxygenPressureModalOpen} onOpenChange={setIsOxygenPressureModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Gauge className="h-5 w-5 text-amber-600" />
+              Aferição de Pressão de O₂ (Manômetro)
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Atualiza a pressão do cilindro e recalcula a autonomia física beira-leito.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleRecordOxygenCheck} className="space-y-4">
+            <div className="space-y-1">
+              <Label className="text-xs">Pressão Mensurada (bar) *</Label>
+              <Input
+                type="number"
+                min="0"
+                max="250"
+                required
+                value={newPressureInput}
+                onChange={(e) => setNewPressureInput(Number(e.target.value))}
+                className="text-sm font-mono"
+              />
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsOxygenPressureModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="bg-amber-600 hover:bg-amber-700 text-white">
+                Salvar Aferição
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Nova Avaliação de Ferida (NPUAP) */}
       <Dialog open={isWoundModalOpen} onOpenChange={setIsWoundModalOpen}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Bandage className="h-5 w-5 text-teal-600" />
               Avaliação de Ferida & Protocolo de Curativo (NPUAP)
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Registro beira-leito de dimensões, estadiamento, tecido do leito e conduta tópica.
+              Estadiamento clínico, percentuais de leito e prescrição de coberturas.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleRecordWoundEvaluation} className="space-y-4">
             {errorMessage && (
-              <div className="p-3 bg-red-50 text-red-700 text-xs rounded-lg border border-red-200">
-                {errorMessage}
+              <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+                <span>{errorMessage}</span>
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Identificador da Lesão *</Label>
-                <Input
-                  required
-                  value={woundForm.woundIdentifier}
-                  onChange={(e) => setWoundForm({ ...woundForm, woundIdentifier: e.target.value })}
-                  className="text-xs"
-                />
-              </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Identificador da Lesão *</Label>
+              <Input
+                required
+                value={woundForm.woundIdentifier}
+                onChange={(e) => setWoundForm({ ...woundForm, woundIdentifier: e.target.value })}
+                placeholder="Ex: Lesão por Pressão 1 — Região Sacral"
+                className="text-xs"
+              />
+            </div>
 
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-xs">Localização Anatômica *</Label>
                 <select
@@ -1838,33 +1879,32 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
                   onChange={(e) => setWoundForm({ ...woundForm, location: e.target.value as any })}
                 >
                   <option value="SACRO">Região Sacral</option>
-                  <option value="TROCANTER_DIREITO">Trocânter Direito</option>
-                  <option value="TROCANTER_ESQUERDO">Trocânter Esquerdo</option>
-                  <option value="CALCANEO_DIREITO">Calcâneo Direito</option>
-                  <option value="CALCANEO_ESQUERDO">Calcâneo Esquerdo</option>
-                  <option value="MALEOLO_LATERAL_DIREITO">Maléolo Direito</option>
-                  <option value="OCCIPITAL">Região Occipital</option>
-                  <option value="OUTRO">Outra Localização</option>
+                  <option value="CALCANHAR_DIREITO">Calcâneo Direito</option>
+                  <option value="CALCANHAR_ESQUERDO">Calcâneo Esquerdo</option>
+                  <option value="TROCANTER_DIREITO">Trocânter Maior Direito</option>
+                  <option value="TROCANTER_ESQUERDO">Trocânter Maior Esquerdo</option>
+                  <option value="ISQUIO">Região Isquiática</option>
+                  <option value="MALEOLO_LATERAL">Maléolo Lateral</option>
+                  <option value="MEMBRO_INFERIOR">Membro Inferior</option>
+                  <option value="OUTRO">Outro Local</option>
                 </select>
               </div>
-            </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs">Estadiamento NPUAP / Tipo de Lesão *</Label>
-              <select
-                className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 py-1 text-xs"
-                value={woundForm.stage}
-                onChange={(e) => setWoundForm({ ...woundForm, stage: e.target.value as any })}
-              >
-                <option value="ESTAGIO_1">Estágio 1 (Eritema não branqueável em pele intacta)</option>
-                <option value="ESTAGIO_2">Estágio 2 (Perda parcial da pele / derme exposta)</option>
-                <option value="ESTAGIO_3">Estágio 3 (Perda total da espessura da pele / tecido adiposo)</option>
-                <option value="ESTAGIO_4">Estágio 4 (Perda total com exposição de osso/músculo)</option>
-                <option value="NAO_CLASSIFICAVEL">Não Classificável (Coberta por esfacelo/escara)</option>
-                <option value="LTP_TISSULAR_PROFUNDA">Lesão Tissular Profunda (LTP)</option>
-                <option value="FERIDA_CIRURGICA">Ferida Operatória / Cirúrgica</option>
-                <option value="ULCERA_VASCULAR_VENOSA">Úlcera Vascular Venosa</option>
-              </select>
+              <div className="space-y-1">
+                <Label className="text-xs">Estadiamento NPUAP *</Label>
+                <select
+                  className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 py-1 text-xs"
+                  value={woundForm.stage}
+                  onChange={(e) => setWoundForm({ ...woundForm, stage: e.target.value as any })}
+                >
+                  <option value="ESTAGIO_1">Estágio 1 (Eritema não branqueável)</option>
+                  <option value="ESTAGIO_2">Estágio 2 (Perda parcial da derme)</option>
+                  <option value="ESTAGIO_3">Estágio 3 (Perda total da pele/subcutâneo)</option>
+                  <option value="ESTAGIO_4">Estágio 4 (Perda total com exposição muscular/óssea)</option>
+                  <option value="NAO_CLASSIFICAVEL">Não Classificável (Obscurecida por necrose/esfacelo)</option>
+                  <option value="TISSULAR_PROFUNDA">Lesão por Pressão Tissular Profunda</option>
+                </select>
+              </div>
             </div>
 
             <div className="grid grid-cols-3 gap-3">
@@ -1873,7 +1913,6 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
                 <Input
                   type="number"
                   step="0.1"
-                  min="0.1"
                   required
                   value={woundForm.lengthCm}
                   onChange={(e) => setWoundForm({ ...woundForm, lengthCm: Number(e.target.value) })}
@@ -1886,7 +1925,6 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
                 <Input
                   type="number"
                   step="0.1"
-                  min="0.1"
                   required
                   value={woundForm.widthCm}
                   onChange={(e) => setWoundForm({ ...woundForm, widthCm: Number(e.target.value) })}
@@ -1899,7 +1937,6 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
                 <Input
                   type="number"
                   step="0.1"
-                  min="0"
                   value={woundForm.depthCm}
                   onChange={(e) => setWoundForm({ ...woundForm, depthCm: Number(e.target.value) })}
                   className="text-xs"
@@ -1908,10 +1945,10 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
             </div>
 
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-              <div className="text-xs font-semibold text-slate-800">Composição do Leito Tecidual (Soma máxima: 100%)</div>
+              <Label className="text-xs font-bold text-slate-800">Composição do Leito da Lesão (% total ≤ 100%)</Label>
               <div className="grid grid-cols-4 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-emerald-700 font-bold">Granulação %</Label>
+                <div>
+                  <span className="text-[11px] text-emerald-700 block">Granulação (%)</span>
                   <Input
                     type="number"
                     min="0"
@@ -1921,8 +1958,8 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
                     className="text-xs"
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-amber-700 font-bold">Esfacelo %</Label>
+                <div>
+                  <span className="text-[11px] text-amber-700 block">Esfacelo (%)</span>
                   <Input
                     type="number"
                     min="0"
@@ -1932,8 +1969,8 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
                     className="text-xs"
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-red-700 font-bold">Necrose %</Label>
+                <div>
+                  <span className="text-[11px] text-red-700 block">Necrose (%)</span>
                   <Input
                     type="number"
                     min="0"
@@ -1943,8 +1980,8 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
                     className="text-xs"
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-teal-700 font-bold">Epitelização %</Label>
+                <div>
+                  <span className="text-[11px] text-teal-700 block">Epitelização (%)</span>
                   <Input
                     type="number"
                     min="0"
@@ -1959,38 +1996,40 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
+                <Label className="text-xs">Exsudato *</Label>
+                <select
+                  className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 py-1 text-xs"
+                  value={woundForm.exudateAmount}
+                  onChange={(e) => setWoundForm({ ...woundForm, exudateAmount: e.target.value as any })}
+                >
+                  <option value="AUSENTE">Ausente</option>
+                  <option value="ESCASSO">Escasso</option>
+                  <option value="MODERADO">Moderado</option>
+                  <option value="ABUNDANTE">Abundante</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
                 <Label className="text-xs">Cobertura Primária Prescrita *</Label>
                 <select
                   className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 py-1 text-xs"
                   value={woundForm.prescribedCovering}
                   onChange={(e) => setWoundForm({ ...woundForm, prescribedCovering: e.target.value as any })}
                 >
-                  <option value="ESPUMA_DE_POLIURETANO_SILICONE">Espuma com Silicone</option>
-                  <option value="PRATA_IONICA_ALGINATO">Prata Iônica com Alginato</option>
-                  <option value="HIDROCOLOIDE">Placa de Hidrocoloide</option>
-                  <option value="ALGINATO_DE_CALCIO">Alginato de Cálcio</option>
-                  <option value="HIDROGEL_COM_ALGINATO">Hidrogel com Alginato</option>
+                  <option value="ESPUMA_DE_POLIURETANO_SILICONE">Espuma de Poliuretano com Silicone / Prata</option>
+                  <option value="HIDROCOLOIDE">Placa de Hidrocoloide Extra Fino</option>
+                  <option value="ALGINATO_CALCIO">Alginato de Cálcio e Sódio</option>
+                  <option value="HIDROGEL">Hidrogel com Alginato (Debridamento Autolítico)</option>
+                  <option value="CARVAO_ATIVADO_PRATA">Carvão Ativado com Prata</option>
                   <option value="COLAGENASE">Colagenase com Cloranfenicol</option>
-                  <option value="FILME_TRANSPARENTE">Filme Transparente</option>
-                  <option value="CURATIVO_SIMPLES_GAZE_SF09">Curativo Simples (Gaze + SF 0,9%)</option>
+                  <option value="BOTA_UNNA">Bota de Unna</option>
+                  <option value="OUTRA">Outra Cobertura</option>
                 </select>
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-xs">Frequência de Troca (horas)</Label>
-                <Input
-                  type="number"
-                  min="6"
-                  max="168"
-                  value={woundForm.dressingChangeFrequencyHours}
-                  onChange={(e) => setWoundForm({ ...woundForm, dressingChangeFrequencyHours: Number(e.target.value) })}
-                  className="text-xs"
-                />
               </div>
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs">Observações Clínicas e Conduta</Label>
+              <Label className="text-xs">Notas Clínicas e Evolução</Label>
               <Textarea
                 rows={2}
                 value={woundForm.clinicalNotes}
@@ -2000,43 +2039,12 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsWoundModalOpen(false)}>Cancelar</Button>
-              <Button type="submit" className="bg-teal-600 hover:bg-teal-700 text-white">Salvar Avaliação</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal: Aferir Pressão de Oxigênio */}
-      <Dialog open={isOxygenPressureModalOpen} onOpenChange={setIsOxygenPressureModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Gauge className="h-5 w-5 text-amber-600" />
-              Aferição de Pressão do Cilindro de O₂
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              Recalcula em tempo real a autonomia em horas de oxigênio beira-leito.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleRecordOxygenCheck} className="space-y-3">
-            <div className="space-y-1">
-              <Label className="text-xs">Pressão Mensurada no Manômetro (bar) *</Label>
-              <Input
-                type="number"
-                min={0}
-                max={200}
-                required
-                value={newPressureInput}
-                onChange={(e) => setNewPressureInput(Number(e.target.value))}
-                className="text-sm font-bold text-slate-900"
-              />
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsOxygenPressureModalOpen(false)}>Cancelar</Button>
-              <Button type="submit" className="bg-amber-600 hover:bg-amber-700 text-white">Confirmar & Recalcular</Button>
+              <Button type="button" variant="outline" onClick={() => setIsWoundModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="bg-teal-600 hover:bg-teal-700 text-white">
+                Salvar Avaliação
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -2044,4 +2052,3 @@ export default function PatientPEPPage({ params }: { params: Promise<{ id: strin
     </div>
   );
 }
-

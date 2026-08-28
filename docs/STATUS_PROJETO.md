@@ -24,6 +24,6 @@
 | **ONDA 1: NEWS2 / Detecção Precoce de Deterioração & Alertas** | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | **CONCLUÍDO** |
 | **ONDA 2: Visitas, Check-in/Out & Geofencing GPS** | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | **CONCLUÍDO** |
 | **ONDA 3: Gestão de Insumos, Oxigenoterapia & Curativos** | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | **CONCLUÍDO** |
-| **ONDA 4: Portal do Familiar & Camada de Visibilidade LGPD** | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | **PENDENTE** |
+| **ONDA 4: Portal do Familiar & Camada de Visibilidade LGPD** | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | **CONCLUÍDO** |
 | **ONDA 5: Offline-First / PWA com Sincronização Idempotente** | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | **PENDENTE** |
 | **ONDA 6: Central Operacional Integrada & Drill-Down** | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | **PENDENTE** |

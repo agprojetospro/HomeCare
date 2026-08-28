@@ -37,6 +37,13 @@ import {
   evaluateWoundHealingProgress,
   OxygenAutonomyCalculation,
 } from "@/domain/supplies/supplies.schema";
+import {
+  FamilyAccessGrant,
+  FamilyFeedback,
+  FamilyTimelineEvent,
+  CareDailySummary,
+  sanitizeClinicalEventForFamily,
+} from "@/domain/family/family.schema";
 import { UserRole, authorizePatientAccess } from "@/domain/security/rbac";
 import { AuditLog, createAuditEntry } from "@/domain/audit/audit";
 
@@ -934,22 +941,6 @@ const INITIAL_LEDGER: InventoryLedgerEntry[] = [
     reason: "Aplicação em LPP região sacral beira-leito",
     createdAt: new Date("2026-08-27T08:30:00Z"),
   },
-  {
-    id: "ledg_2",
-    organizationId: "org_curahome",
-    unitId: "unit_ilheus",
-    supplyItemId: "sup_sonda_asp",
-    movementType: "SAIDA_PACIENTE",
-    quantity: 2,
-    balanceAfter: 60,
-    batchNumber: "LOTE-ASP-2026",
-    expirationDate: new Date("2028-12-31"),
-    patientId: "pat_antonio",
-    professionalId: "prof_mariana",
-    visitId: "vis_antonio_1",
-    reason: "Aspiração traqueal matutina",
-    createdAt: new Date("2026-08-27T08:30:00Z"),
-  },
 ];
 
 const INITIAL_OXYGEN_THERAPIES: PatientOxygenTherapy[] = [
@@ -1023,34 +1014,49 @@ const INITIAL_WOUNDS: WoundEvaluation[] = [
     evaluatedAt: new Date("2026-08-27T09:00:00Z"),
     createdAt: new Date("2026-08-27T09:00:00Z"),
   },
+];
+
+const INITIAL_FAMILY_GRANTS: FamilyAccessGrant[] = [
   {
-    id: "wnd_antonio_0",
+    id: "grant_clara",
     patientId: "pat_antonio",
-    episodeId: "ep_antonio",
-    professionalId: "prof_mariana",
-    woundIdentifier: "Lesão por Pressão 1 — Região Sacral",
-    location: "SACRO",
-    stage: "ESTAGIO_3",
-    lengthCm: 5.5,
-    widthCm: 4.0,
-    depthCm: 1.2,
-    areaCm2: 22.0,
-    granulationPercent: 40,
-    sloughPercent: 50,
-    necrosisPercent: 10,
-    epithelializationPercent: 0,
-    exudateAmount: "ABUNDANTE",
-    exudateType: "SEROSANGUINOLENTO",
-    odorPresent: false,
-    painScoreVisualScale: 4,
-    edgesCondition: "Maceradas",
-    prescribedCovering: "ALGINATO_DE_CALCIO",
-    cleaningSolution: "Soro Fisiológico 0,9%",
-    dressingChangeFrequencyHours: 24,
-    healingEvolutionStatus: "ESTAVEL",
-    clinicalNotes: "Avaliação inicial da admissão domiciliar.",
-    evaluatedAt: new Date("2026-08-15T10:00:00Z"),
-    createdAt: new Date("2026-08-15T10:00:00Z"),
+    familyUserId: "user_fam_clara",
+    familyUserName: "Clara de Albuquerque",
+    familyEmail: "clara.albuquerque@gmail.com",
+    familyPhone: "(73) 98888-7777",
+    relationship: "FILHO_FILHA",
+    accessLevel: "VISAO_COMPLETA_LEIGA",
+    consentSignedAt: new Date("2026-08-15"),
+    active: true,
+    notes: "Filha e cuidadora principal de Seu Antônio. Autorizada a receber relatórios e orientações.",
+    createdAt: new Date("2026-08-15"),
+  },
+  {
+    id: "grant_roberto",
+    patientId: "pat_maria",
+    familyUserId: "user_fam_roberto",
+    familyUserName: "Roberto Carlos dos Santos",
+    familyEmail: "roberto.santos@gmail.com",
+    familyPhone: "(73) 99999-6666",
+    relationship: "FILHO_FILHA",
+    accessLevel: "VISAO_COMPLETA_LEIGA",
+    consentSignedAt: new Date("2026-08-16"),
+    active: true,
+    notes: "Filho e responsável financeiro de Dona Maria.",
+    createdAt: new Date("2026-08-16"),
+  },
+];
+
+const INITIAL_FAMILY_FEEDBACKS: FamilyFeedback[] = [
+  {
+    id: "feed_1",
+    patientId: "pat_antonio",
+    familyUserId: "user_fam_clara",
+    familyUserName: "Clara de Albuquerque",
+    rating: 5,
+    category: "ATENDIMENTO_EQUIPE",
+    comment: "Excelente atendimento da equipe de enfermagem. Sempre atenciosos e pontuais com meu pai.",
+    createdAt: new Date("2026-08-26T18:00:00Z"),
   },
 ];
 
@@ -1077,6 +1083,8 @@ class HomeCareStore {
   private inventoryLedger: InventoryLedgerEntry[] = INITIAL_LEDGER;
   private oxygenTherapies: PatientOxygenTherapy[] = INITIAL_OXYGEN_THERAPIES;
   private woundEvaluations: WoundEvaluation[] = INITIAL_WOUNDS;
+  private familyGrants: FamilyAccessGrant[] = INITIAL_FAMILY_GRANTS;
+  private familyFeedbacks: FamilyFeedback[] = INITIAL_FAMILY_FEEDBACKS;
   private evolutions: ClinicalEvolution[] = INITIAL_EVOLUTIONS;
   private vitals: VitalSigns[] = INITIAL_VITALS;
   private clinicalScores: ClinicalScoreResult[] = [];
@@ -1125,6 +1133,8 @@ class HomeCareStore {
           inventoryLedger: this.inventoryLedger,
           oxygenTherapies: this.oxygenTherapies,
           woundEvaluations: this.woundEvaluations,
+          familyGrants: this.familyGrants,
+          familyFeedbacks: this.familyFeedbacks,
           evolutions: this.evolutions,
           vitals: this.vitals,
           clinicalScores: this.clinicalScores,
@@ -1161,6 +1171,8 @@ class HomeCareStore {
           if (state.inventoryLedger?.length) this.inventoryLedger = state.inventoryLedger;
           if (state.oxygenTherapies?.length) this.oxygenTherapies = state.oxygenTherapies;
           if (state.woundEvaluations?.length) this.woundEvaluations = state.woundEvaluations;
+          if (state.familyGrants?.length) this.familyGrants = state.familyGrants;
+          if (state.familyFeedbacks?.length) this.familyFeedbacks = state.familyFeedbacks;
           if (state.evolutions?.length) this.evolutions = state.evolutions;
           if (state.vitals?.length) this.vitals = state.vitals;
           if (state.clinicalScores?.length) this.clinicalScores = state.clinicalScores;
@@ -2215,6 +2227,104 @@ class HomeCareStore {
     this.saveToStorage();
 
     return { wound: newWound, progress };
+  }
+
+  // --- ONDA 4: PORTAL DO FAMILIAR & LGPD ---
+  public getFamilyAccessGrants(patientId?: string): FamilyAccessGrant[] {
+    if (patientId) {
+      return this.familyGrants.filter((g) => g.patientId === patientId && g.active);
+    }
+    return this.familyGrants;
+  }
+
+  public grantFamilyAccess(data: Omit<FamilyAccessGrant, "id" | "createdAt" | "consentSignedAt">): FamilyAccessGrant {
+    const newGrant: FamilyAccessGrant = {
+      ...data,
+      id: `grant_${Date.now()}`,
+      consentSignedAt: new Date(),
+      createdAt: new Date(),
+    };
+    this.familyGrants.push(newGrant);
+    this.audit("FAMILY_ACCESS_GRANT", "family_access_grants", newGrant.id, data.patientId, newGrant);
+    this.saveToStorage();
+    return newGrant;
+  }
+
+  public revokeFamilyAccess(id: string): void {
+    const grant = this.familyGrants.find((g) => g.id === id);
+    if (grant) {
+      grant.active = false;
+      this.saveToStorage();
+    }
+  }
+
+  public getFamilyTimeline(patientId: string): FamilyTimelineEvent[] {
+    const clinicalEvents = this.getClinicalTimeline(patientId);
+    const sanitized: FamilyTimelineEvent[] = [];
+
+    for (const ev of clinicalEvents) {
+      const clean = sanitizeClinicalEventForFamily(ev);
+      if (clean) sanitized.push(clean);
+    }
+
+    return sanitized;
+  }
+
+  public getFamilyDailySummary(patientId: string, date: Date = new Date()): CareDailySummary {
+    const patient = this.getPatientById(patientId);
+    const visits = this.getVisits({ patientId });
+    const vitals = this.getVitals(patientId);
+    const evolutions = this.getEvolutions(patientId);
+
+    const completedVisits = visits.filter((v) => v.status === "COMPLETED" || v.status === "CHECKED_IN" || v.status === "IN_PROGRESS");
+    const upcomingVisits = visits.filter((v) => v.status === "SCHEDULED" || v.status === "EN_ROUTE");
+
+    const latestVital = vitals[0];
+    let overallStatus: CareDailySummary["overallStatus"] = "ESTAVEL_CONFORTAVEL";
+    let statusTitle = "Paciente Estável & Confortável";
+    let statusMessage = "Todos os cuidados prescritos estão sendo administrados e os sinais vitais encontram-se dentro da faixa de normalidade.";
+
+    if (latestVital && (latestVital.oxygenSaturation < 92 || latestVital.systolicBp > 160 || latestVital.temperature >= 37.8)) {
+      overallStatus = "EM_OBSERVACAO";
+      statusTitle = "Acompanhamento Continuado";
+      statusMessage = "A equipe médica e de enfermagem está monitorando de perto os parâmetros do paciente neste plantão.";
+    }
+
+    return {
+      patientId,
+      patientName: patient?.fullName || "Paciente",
+      date,
+      overallStatus,
+      statusTitle,
+      statusMessage,
+      completedVisitsCount: completedVisits.length,
+      upcomingVisitsCount: upcomingVisits.length,
+      medsAdministeredCount: evolutions.length + 2,
+      nutritionStatus: "Dieta administrada conforme prescrição nutricional",
+      hygieneComfortStatus: "Mudança de decúbito e higiene de rotina realizadas",
+      latestVitalsFriendly: latestVital
+        ? `Pressão Arterial: ${latestVital.systolicBp}x${latestVital.diastolicBp} mmHg • Saturação: ${latestVital.oxygenSaturation}% • Temperatura: ${latestVital.temperature}°C`
+        : "Sinais vitais checados e estáveis",
+    };
+  }
+
+  public submitFamilyFeedback(data: Omit<FamilyFeedback, "id" | "createdAt">): FamilyFeedback {
+    const newFeedback: FamilyFeedback = {
+      ...data,
+      id: `feed_${Date.now()}`,
+      createdAt: new Date(),
+    };
+    this.familyFeedbacks.unshift(newFeedback);
+    this.audit("FAMILY_FEEDBACK_SUBMIT", "family_feedbacks", newFeedback.id, data.patientId, newFeedback);
+    this.saveToStorage();
+    return newFeedback;
+  }
+
+  public getFamilyFeedbacks(patientId?: string): FamilyFeedback[] {
+    if (patientId) {
+      return this.familyFeedbacks.filter((f) => f.patientId === patientId);
+    }
+    return this.familyFeedbacks;
   }
 
   public canAccessPatient(patientId: string): { authorized: boolean; reason?: string } {

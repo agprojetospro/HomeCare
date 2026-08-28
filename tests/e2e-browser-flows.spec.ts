@@ -55,7 +55,7 @@ test.describe("HomeCare E2E Browser Flows & Zero-Console-Error Validation", () =
     expect(consoleErrors).toHaveLength(0);
   });
 
-  test("4. Deve navegar por todas as 15 telas principais sem falhas de renderização", async ({ page }) => {
+  test("4. Deve navegar por todas as 16 telas principais sem falhas de renderização", async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on("pageerror", (err) => consoleErrors.push(err.message));
 
@@ -67,6 +67,7 @@ test.describe("HomeCare E2E Browser Flows & Zero-Console-Error Validation", () =
       "/pad",
       "/escalas",
       "/insumos",
+      "/portal-familiar",
       "/pep",
       "/pep/pat_antonio",
       "/profissionais",
@@ -166,5 +167,26 @@ test.describe("HomeCare E2E Browser Flows & Zero-Console-Error Validation", () =
 
     expect(consoleErrors).toHaveLength(0);
   });
-});
 
+  test("8. Deve renderizar o Portal do Familiar humanizado e permitir envio de feedback de atendimento", async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on("pageerror", (err) => consoleErrors.push(err.message));
+
+    // Acessar /portal-familiar
+    await page.goto("/portal-familiar");
+    await expect(page.locator("text=Portal da Família & Cuidador")).toBeVisible();
+    await expect(page.locator("text=Estado Geral Hoje")).toBeVisible();
+    await expect(page.locator("text=Diário de Cuidados & Visitas")).toBeVisible();
+
+    // Abrir Modal de Avaliação / Feedback
+    await page.getByRole("button", { name: "Avaliar Cuidado" }).click();
+    await expect(page.locator("text=Avaliação do Atendimento da Equipe")).toBeVisible();
+
+    // Preencher comentário e enviar
+    await page.fill("textarea", "Atendimento impecável e muito acolhedor para nosso familiar!");
+    await page.getByRole("button", { name: "Enviar Avaliação" }).click();
+    await expect(page.locator("text=Muito obrigado pelo seu feedback!")).toBeVisible();
+
+    expect(consoleErrors).toHaveLength(0);
+  });
+});

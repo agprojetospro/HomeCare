@@ -7,3 +7,4 @@ export * from "./alerts.repository";
 export * from "./audit.repository";
 export * from "./visits.repository";
 export * from "./supplies.repository";
+export * from "./family.repository";
