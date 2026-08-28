@@ -7,7 +7,7 @@ test.describe("HomeCare E2E Browser Flows & Zero-Console-Error Validation", () =
 
     await page.goto("/");
     await expect(page.locator("text=Central Operacional HomeCare")).toBeVisible();
-    await expect(page.locator("text=Visão geral da assistência domiciliar")).toBeVisible();
+    await expect(page.locator("text=Monitoramento em tempo real de estabilidade clínica")).toBeVisible();
     expect(consoleErrors).toHaveLength(0);
   });
 
@@ -212,6 +212,25 @@ test.describe("HomeCare E2E Browser Flows & Zero-Console-Error Validation", () =
     await page.evaluate(() => {
       window.dispatchEvent(new Event("online"));
     });
+
+    expect(consoleErrors).toHaveLength(0);
+  });
+
+  test("10. Deve renderizar a Central Operacional com 5 KPIs consolidados e permitir drill-down por unidade", async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on("pageerror", (err) => consoleErrors.push(err.message));
+
+    await page.goto("/");
+    await expect(page.locator("text=Central Operacional HomeCare — Comando Unificado")).toBeVisible();
+    await expect(page.locator("text=Segurança Clínica")).toBeVisible();
+    await expect(page.locator("text=Visitas do Dia")).toBeVisible();
+    await expect(page.locator("span", { hasText: "Insumos & O₂" }).first()).toBeVisible();
+    await expect(page.getByText("Curativos NPUAP", { exact: true })).toBeVisible();
+    await expect(page.locator("span", { hasText: "Portal do Familiar" }).first()).toBeVisible();
+
+    // Trocar unidade no select
+    await page.selectOption("select", "unit_ilheus");
+    await expect(page.locator("text=Antônio Carlos de Albuquerque")).toBeVisible();
 
     expect(consoleErrors).toHaveLength(0);
   });

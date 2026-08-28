@@ -44,6 +44,8 @@ import {
   CareDailySummary,
   sanitizeClinicalEventForFamily,
 } from "@/domain/family/family.schema";
+import { OperationalDashboardMetrics } from "@/domain/dashboard/operational-metrics.schema";
+import { syncManager } from "@/services/offline/sync-manager.service";
 import { UserRole, authorizePatientAccess } from "@/domain/security/rbac";
 import { AuditLog, createAuditEntry } from "@/domain/audit/audit";
 
@@ -2325,6 +2327,119 @@ class HomeCareStore {
       return this.familyFeedbacks.filter((f) => f.patientId === patientId);
     }
     return this.familyFeedbacks;
+  }
+
+  public getOperationalDashboardMetrics(unitId?: string): OperationalDashboardMetrics {
+    const patients = unitId ? this.patients.filter((p) => p.unitId === unitId) : this.patients;
+    const episodes = this.episodes.filter(
+      (ep) => ep.organizationId === this.currentUser.organizationId && ep.status === "ATIVO"
+    );
+    const visits = this.getVisits();
+    const supplies = this.getSupplyCatalog(unitId);
+    const oxygenTherapies = this.oxygenTherapies.filter((o) => o.active);
+    const wounds = this.woundEvaluations;
+    const feedbacks = this.getFamilyFeedbacks();
+
+    // 1. NEWS2 Clínico
+    let news2CriticalCount = 0;
+    let news2MediumCount = 0;
+    let news2StableCount = 0;
+
+    for (const patient of patients) {
+      const scores = this.getNews2Scores(patient.id!);
+      const latestScore = scores[0];
+      if (latestScore) {
+        if (latestScore.score >= 7 || latestScore.riskLevel === "HIGH") news2CriticalCount++;
+        else if (latestScore.score >= 5 || latestScore.riskLevel === "MEDIUM") news2MediumCount++;
+        else news2StableCount++;
+      } else {
+        news2StableCount++;
+      }
+    }
+
+    // 2. Visitas
+    const visitsCompleted = visits.filter((v) => v.status === "COMPLETED").length;
+    const visitsInProgress = visits.filter((v) => v.status === "CHECKED_IN" || v.status === "IN_PROGRESS").length;
+    const visitsScheduled = visits.filter((v) => v.status === "SCHEDULED" || v.status === "EN_ROUTE").length;
+
+    // 3. Logística e Oxigênio
+    const criticalSuppliesCount = supplies.filter((s) => s.currentStock <= s.reorderPoint).length;
+    const criticalOxygenCount = oxygenTherapies.filter((o) => {
+      const calc = calculateOxygenAutonomy(o.currentPressureBar || 0, o.flowRateLpm, o.cylinderFactorK || 1.0, new Date());
+      return calc.status === "CRITICO" || calc.status === "ATENCAO";
+    }).length;
+
+    // 4. Curativos & Lesões
+    const activeWoundsCount = wounds.length;
+
+    // 5. Família & Satisfação
+    const totalRating = feedbacks.reduce((acc, f) => acc + f.rating, 0);
+    const familySatisfactionRating = feedbacks.length > 0 ? Number((totalRating / feedbacks.length).toFixed(1)) : 5.0;
+
+    // 6. Resiliência Offline
+    const offlineSyncPendingCount = syncManager.getPendingCount();
+
+    return {
+      totalPatients: patients.length,
+      activeEpisodes: episodes.length,
+      news2CriticalCount,
+      news2MediumCount,
+      news2StableCount,
+      visitsTodayTotal: visits.length,
+      visitsCompleted,
+      visitsInProgress,
+      visitsScheduled,
+      criticalSuppliesCount,
+      criticalOxygenCount,
+      activeWoundsCount,
+      familySatisfactionRating,
+      totalFamilyFeedbacks: feedbacks.length,
+      offlineSyncPendingCount,
+    };
+  }
+
+  public getActiveAlerts(): Array<{
+    id: string;
+    patientId: string;
+    patientName: string;
+    severity: "CRITICO" | "ATENCAO";
+    message: string;
+    triggerParam: string;
+  }> {
+    const alerts: Array<{
+      id: string;
+      patientId: string;
+      patientName: string;
+      severity: "CRITICO" | "ATENCAO";
+      message: string;
+      triggerParam: string;
+    }> = [];
+
+    for (const pat of this.patients) {
+      const news2 = this.getNews2Scores(pat.id!)[0];
+      if (news2 && news2.score >= 5) {
+        alerts.push({
+          id: `al_${pat.id}_news2`,
+          patientId: pat.id!,
+          patientName: pat.fullName,
+          severity: news2.score >= 7 ? "CRITICO" : "ATENCAO",
+          message: `Escore NEWS2 elevado (${news2.score} pontos). ${news2.recommendedAction}`,
+          triggerParam: `NEWS2 = ${news2.score} (${news2.riskLevel})`,
+        });
+      }
+      const vitals = this.getVitals(pat.id!)[0];
+      if (vitals && (vitals.oxygenSaturation < 92 || vitals.systolicBp > 160)) {
+        alerts.push({
+          id: `al_${pat.id}_vital`,
+          patientId: pat.id!,
+          patientName: pat.fullName,
+          severity: vitals.oxygenSaturation < 90 ? "CRITICO" : "ATENCAO",
+          message: `Saturação de O₂ em ${vitals.oxygenSaturation}% e PA ${vitals.systolicBp}x${vitals.diastolicBp} mmHg.`,
+          triggerParam: `SpO2: ${vitals.oxygenSaturation}%`,
+        });
+      }
+    }
+    return alerts;
   }
 
   public canAccessPatient(patientId: string): { authorized: boolean; reason?: string } {

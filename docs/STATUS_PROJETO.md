@@ -1,6 +1,6 @@
 # Matriz de Status do Projeto — HomeCare
 
-Última atualização: 27/08/2026 (ONDA 1: Protocolo NEWS2 & Alertas Concluído com 100% dos Quality Gates)
+Última atualização: 27/08/2026 (ROADMAP COMPLETO: Todas as 6 Ondas Estratégicas e Fundações Concluídas com 100% dos Quality Gates)
 
 | Etapa / Módulo | Modelagem | Banco (DDL/RLS) | Frontend | Segurança / RBAC | Testes Automatizados | E2E | Status Geral |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -26,4 +26,4 @@
 | **ONDA 3: Gestão de Insumos, Oxigenoterapia & Curativos** | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | **CONCLUÍDO** |
 | **ONDA 4: Portal do Familiar & Camada de Visibilidade LGPD** | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | **CONCLUÍDO** |
 | **ONDA 5: Offline-First / PWA com Sincronização Idempotente** | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | **CONCLUÍDO** |
-| **ONDA 6: Central Operacional Integrada & Drill-Down** | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | PLANEJADO | **PENDENTE** |
+| **ONDA 6: Central Operacional Integrada & Drill-Down** | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | CONCLUÍDO | **CONCLUÍDO** |
