@@ -189,4 +189,30 @@ test.describe("HomeCare E2E Browser Flows & Zero-Console-Error Validation", () =
 
     expect(consoleErrors).toHaveLength(0);
   });
+
+  test("9. Deve ativar o banner de Modo Offline e permitir sincronização manual de dados", async ({ page, context }) => {
+    const consoleErrors: string[] = [];
+    page.on("pageerror", (err) => consoleErrors.push(err.message));
+
+    await page.goto("/");
+    await expect(page.locator("text=Central Operacional HomeCare")).toBeVisible();
+
+    // Simular evento offline no navegador
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event("offline"));
+    });
+
+    // Verificar se o banner de Modo Offline Ativo apareceu
+    await expect(page.locator("text=Modo Offline Ativo")).toBeVisible();
+
+    // Clicar no botão de verificação/sincronização
+    await page.getByRole("button", { name: "Verificar Conexão" }).click();
+
+    // Simular retorno online
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event("online"));
+    });
+
+    expect(consoleErrors).toHaveLength(0);
+  });
 });
